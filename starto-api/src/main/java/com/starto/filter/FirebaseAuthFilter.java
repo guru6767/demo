@@ -15,26 +15,55 @@ import java.util.Collections;
 
 public class FirebaseAuthFilter extends OncePerRequestFilter {
 
+    // skip the authentication
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        // ← Add all public endpoints here — filter will skip them
+        return path.equals("/api/auth/forgot-password");
+    }
+
+    // do the filter for mapping
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain)
             throws ServletException, IOException {
 
         String authHeader = request.getHeader("Authorization");
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String idToken = authHeader.substring(7);
-            try {
-                FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken);
-                String uid = decodedToken.getUid();
+        System.out.println("=== FIREBASE FILTER ===");
+        System.out.println("URI: " + request.getRequestURI());
+        System.out.println("AUTH HEADER: "
+                + (authHeader != null ? authHeader.substring(0, Math.min(30, authHeader.length())) : "NULL"));
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        uid, null, Collections.emptyList());
+        // no token — let Spring Security decide (public routes will pass)
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            } catch (Exception e) {
-                // Token verification failed
-                logger.error("Firebase token verification failed", e);
-            }
+        String idToken = authHeader.substring(7);
+        try {
+            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken);
+            String uid = decodedToken.getUid();
+
+            System.out.println("UID VERIFIED: " + uid);
+
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(uid, null,
+                    Collections.emptyList());
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        } catch (Exception e) {
+
+            System.out.println("TOKEN ERROR: " + e.getMessage());
+
+            // return 401 immediately — don't continue with broken token
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\": \"Invalid or expired token: " + e.getMessage() + "\"}");
+            return;
         }
 
         filterChain.doFilter(request, response);

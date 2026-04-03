@@ -2,26 +2,26 @@ spring:
   application:
     name: starto-api
   datasource:
-    url: ${DATABASE_URL}
-    username: ${DATABASE_USERNAME}
-    password: ${DATABASE_PASSWORD}
+    url: jdbc:postgresql://localhost:5432/starto
+    username: postgres
+    password: password
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: false
+    show-sql: true
+    open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-  data:
-    redis:
-      url: ${REDIS_URL}
+
+logging:
+  level:
+    org.springframework.transaction: DEBUG
+    org.hibernate.SQL: DEBUG
 
 server:
   port: 8081
-
-firebase:
-  config-path: ${FIREBASE_CONFIG_PATH}
 
 openai:
   api-key: ${OPENAI_API_KEY}
@@ -29,15 +29,15 @@ openai:
 google:
   ai:
     api-key: ${GEMINI_API_KEY}
+  maps:
+    api-key: dummy_Google_Maps_key
+
+firebase:
+  config-path: C:/Users/sagar/Documents/starto/starto-v3/starto-api/src/main/resources/firebase-service-account.json
 
 razorpay:
-  key-id: ${RAZORPAY_KEY_ID}
-  key-secret: ${RAZORPAY_KEY_SECRET}
-  webhook-secret: ${RAZORPAY_WEBHOOK_SECRET}
-
-stripe:
-  api-key: ${STRIPE_API_KEY}
-  webhook-secret: ${STRIPE_WEBHOOK_SECRET}
-
-sendgrid:
-  api-key: ${SENDGRID_API_KEY}
+  key:
+    id: dummy_rzp_key
+    secret: dummy_rzp_secret
+  plan:
+    id: plan_fake123456789

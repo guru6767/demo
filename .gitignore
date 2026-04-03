@@ -54,3 +54,6 @@ application-secrets.properties
 application-local.properties
 *.p12
 *.jks
+
+# ===== Firebase =====
+firebase-service-account.json

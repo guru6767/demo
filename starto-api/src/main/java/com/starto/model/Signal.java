@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.hibernate.annotations.Formula;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -20,9 +23,16 @@ public class Signal {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @Column(name = "user_id", insertable = false, updatable = false)
+    private UUID userId;
+
+    @Formula("(SELECT u.username FROM users u WHERE u.id = user_id)")
+    private String username;
 
     @Column(nullable = false, length = 50)
     private String type;
@@ -55,24 +65,31 @@ public class Signal {
     private String compensation;
 
     @Column(length = 20)
+    @Builder.Default
     private String visibility = "global";
 
     @Column(length = 20)
+    @Builder.Default
     private String status = "open";
 
     @Column(name = "signal_strength", length = 20)
+    @Builder.Default
     private String signalStrength = "normal";
 
     @Column(name = "response_count")
+    @Builder.Default
     private Integer responseCount = 0;
 
     @Column(name = "offer_count")
+    @Builder.Default
     private Integer offerCount = 0;
 
     @Column(name = "view_count")
+    @Builder.Default
     private Integer viewCount = 0;
 
     @Column(name = "is_boosted")
+    @Builder.Default
     private Boolean isBoosted = false;
 
     @Column(name = "boost_expires_at")
@@ -89,67 +106,62 @@ public class Signal {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 
-    public UUID getId() {
-        return id;
-    }
+    @Column(length = 50)
+    private String seeking;
 
-    public void setId(UUID id) {
-        this.id = id;
-    }
+    // public UUID getId() {
+    // return id;
+    // }
 
-    public User getUser() {
-        return user;
-    }
+    // public void setId(UUID id) {
+    // this.id = id;
+    // }
 
-    public void setUser(User user) {
-        this.user = user;
-    }
+    // public User getUser() {
+    // return user;
+    // }
 
-    public String getType() {
-        return type;
-    }
+    // public void setUser(User user) {
+    // this.user = user;
+    // }
 
-    public void setType(String type) {
-        this.type = type;
-    }
+    // public String getType() {
+    // return type;
+    // }
 
-    public String getTitle() {
-        return title;
-    }
+    // public void setType(String type) {
+    // this.type = type;
+    // }
 
-    public void setTitle(String title) {
-        this.title = title;
-    }
+    // public String getTitle() {
+    // return title;
+    // }
 
-    public String getDescription() {
-        return description;
-    }
+    // public void setTitle(String title) {
+    // this.title = title;
+    // }
 
-    public void setDescription(String description) {
-        this.description = description;
-    }
+    // public String getDescription() {
+    // return description;
+    // }
 
-    public String getStatus() {
-        return status;
-    }
+    // public void setDescription(String description) {
+    // this.description = description;
+    // }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
+    // public String getStatus() {
+    // return status;
+    // }
 
-    public OffsetDateTime getExpiresAt() {
-        return expiresAt;
-    }
+    // public void setStatus(String status) {
+    // this.status = status;
+    // }
 
-    public void setExpiresAt(OffsetDateTime expiresAt) {
-        this.expiresAt = expiresAt;
-    }
+    // public OffsetDateTime getExpiresAt() {
+    // return expiresAt;
+    // }
 
-    public Integer getViewCount() {
-        return viewCount;
-    }
-
-    public void setViewCount(Integer viewCount) {
-        this.viewCount = viewCount;
-    }
+    // public void setExpiresAt(OffsetDateTime expiresAt) {
+    // this.expiresAt = expiresAt;
+    // }
 }

@@ -28,7 +28,7 @@ $env:Path = "$env:JAVA_HOME\bin;" + $env:Path
 # Set Default Environment Variables for Local Development
 $env:DATABASE_URL = "jdbc:postgresql://localhost:5432/starto"
 $env:DATABASE_USERNAME = "postgres"
-$env:DATABASE_PASSWORD = "password"
+$env:DATABASE_PASSWORD = "admin"
 $env:REDIS_URL = "redis://localhost:6379"
 $env:FIREBASE_CONFIG_PATH = "$PSScriptRoot\firebase-service-account.json"
 $env:OPENAI_API_KEY = "dummy_key"

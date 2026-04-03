@@ -14,6 +14,7 @@ public class ExploreController {
 
     private final ExploreService exploreService;
 
+    // sends the request data
     @PostMapping("/analyze")
     public ResponseEntity<ExploreResponse> analyze(@RequestBody ExploreRequest request) {
         return ResponseEntity.ok(exploreService.analyzeMarket(request));
