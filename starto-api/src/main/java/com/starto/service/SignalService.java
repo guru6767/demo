@@ -100,12 +100,7 @@ public class SignalService {
     }
 
     public List<Signal> getActiveSignals() {
-        List<Signal> results = signalRepository.findByStatusIgnoreCase("open");
-        // If nothing found (e.g. status never set), return all signals
-        if (results.isEmpty()) {
-            return signalRepository.findAllSignals();
-        }
-        return results;
+        return signalRepository.findAllSignals();
     }
 
     public List<Signal> getSignalsByCity(String city) {

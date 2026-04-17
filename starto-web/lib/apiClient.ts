@@ -82,7 +82,8 @@ async function apiFetch<T>(
     };
 
     if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        const finalToken = token.startsWith('local-') ? token.replace('local-', 'dev_') : token;
+        headers['Authorization'] = `Bearer ${finalToken}`;
     }
 
     try {

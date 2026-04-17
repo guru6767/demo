@@ -53,9 +53,10 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
 
         String idToken = authHeader.substring(7);
 
-        // DEV MODE: If token starts with "dev_", bypass Firebase and use the suffix as UID
-        if (idToken.startsWith("dev_")) {
-            String uid = idToken; // Keep the dev_ prefix
+        // DEV MODE: bypass Firebase for dev_ and local- prefixed tokens
+        if (idToken.startsWith("dev_") || idToken.startsWith("local-")) {
+            // Normalize: local-username → dev_username
+            String uid = idToken.startsWith("local-") ? "dev_" + idToken.substring(6) : idToken;
             System.out.println("DEV AUTH BYPASS: Using UID " + uid);
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(uid, null, Collections.emptyList());
             SecurityContextHolder.getContext().setAuthentication(authentication);

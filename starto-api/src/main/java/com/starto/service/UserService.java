@@ -26,21 +26,33 @@ public class UserService {
                 .map(user -> {
                     user.setLastSeen(OffsetDateTime.now());
                     user.setIsOnline(true);
+                    // Update metadata if provided
+                    if (email != null) user.setEmail(email);
+                    if (name != null) user.setName(name);
                     return userRepository.save(user);
                 })
                 .orElseGet(() -> {
+                    // Check for dev token - use the baseUsername as is if possible
+                    String finalUsername = baseUsername;
+                    if (firebaseUid.startsWith("dev_") && !finalUsername.toLowerCase().contains(role.toLowerCase())) {
+                        finalUsername = baseUsername + "_" + role.toLowerCase();
+                    } else if (!firebaseUid.startsWith("dev_")) {
+                        finalUsername = baseUsername + "_" + role.toLowerCase();
+                    }
 
-                    String finalUsername = baseUsername + "_" + role.toLowerCase();
-
-                    // check if username already exists
+                    // If username collision, append UID suffix for dev users
                     if (userRepository.existsByUsername(finalUsername)) {
-                        throw new RuntimeException("Username already exists");
+                        if (firebaseUid.startsWith("dev_")) {
+                             finalUsername = finalUsername + "_" + firebaseUid.substring(Math.max(0, firebaseUid.length() - 4));
+                        } else {
+                             throw new RuntimeException("Username already exists");
+                        }
                     }
 
                     User newUser = User.builder()
                             .firebaseUid(firebaseUid)
-                            .email(email)
-                            .name(name)
+                            .email(email != null ? email : firebaseUid + "@dev.starto")
+                            .name(name != null ? name : baseUsername)
                             .username(finalUsername)
                             .role(role)
                             .plan("free")

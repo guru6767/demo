@@ -35,12 +35,16 @@ public class SignalController {
 
         String firebaseUid = authentication.getPrincipal().toString();
 
+        // Normalize: frontend may send dev_ or local- prefixed tokens
+        if (firebaseUid.startsWith("local-")) {
+            firebaseUid = "dev_" + firebaseUid.substring(6);
+        }
+
         Optional<User> userOpt = userService.getUserByFirebaseUid(firebaseUid);
         
-        // If user doesn't exist but it's a dev UID, try to auto-create
+        // If user doesn't exist but it's a dev UID, auto-create
         if (userOpt.isEmpty() && firebaseUid.startsWith("dev_")) {
             String devUsername = firebaseUid.substring(4);
-            // We use dummy values since we only have the username from the dev_ token
             userOpt = Optional.of(userService.createOrUpdateUser(
                 firebaseUid, 
                 devUsername + "@example.com", 
@@ -179,10 +183,16 @@ public class SignalController {
             return ResponseEntity.status(401).build();
 
         String firebaseUid = authentication.getPrincipal().toString();
+        // Normalize local- to dev_
+        if (firebaseUid.startsWith("local-")) {
+            firebaseUid = "dev_" + firebaseUid.substring(6);
+        }
 
-        return userService.getUserByFirebaseUid(firebaseUid)
+        final String uid = firebaseUid;
+        return userService.getUserByFirebaseUid(uid)
                 .map(user -> {
                     Signal existing = signalService.getSignalById(id);
+                    if (existing == null) return ResponseEntity.status(404).body("Signal not found");
 
                     // ✅ Only the owner can delete
                     if (!existing.getUserId().equals(user.getId())) {

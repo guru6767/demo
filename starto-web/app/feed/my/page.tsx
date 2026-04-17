@@ -1,39 +1,101 @@
 "use client"
 
 import Sidebar from '@/components/feed/Sidebar'
-import { Plus, Search, Filter, Edit3, Trash2, ArrowUpRight } from 'lucide-react'
-import { useSignalStore } from '@/store/useSignalStore'
+import { Plus, Search, Edit3, Trash2, ArrowUpRight, Loader2, RefreshCw } from 'lucide-react'
+import { useSignalStore, getSignalExpiration } from '@/store/useSignalStore'
 import { useAuthStore } from '@/store/useAuthStore'
+import { signalsApi, ApiSignal } from '@/lib/apiClient'
 import RaiseSignalModal from '@/components/feed/RaiseSignalModal'
 import InsightsModal from '@/components/feed/InsightsModal'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function MySignals() {
     const router = useRouter()
-    const { signals, deleteSignal } = useSignalStore()
-    const { user, isAuthenticated } = useAuthStore()
+    const { signals: localSignals, deleteSignal: deleteLocalSignal } = useSignalStore()
+    const { user, isAuthenticated, token } = useAuthStore()
     const [isRaiseModalOpen, setIsRaiseModalOpen] = useState(false)
     const [editingSignal, setEditingSignal] = useState<any>(null)
     const [viewingInsightsSignal, setViewingInsightsSignal] = useState<any>(null)
     const [activeFilter, setActiveFilter] = useState<string | null>(null)
-    
+    const [apiSignals, setApiSignals] = useState<ApiSignal[]>([])
+    const [loading, setLoading] = useState(true)
+    const [deletingId, setDeletingId] = useState<string | null>(null)
+    const [refreshKey, setRefreshKey] = useState(0)
+
     useEffect(() => {
-        if (!isAuthenticated) {
-            router.push('/auth')
-        }
+        if (!isAuthenticated) router.push('/auth')
     }, [isAuthenticated, router])
 
+    const fetchMySignals = useCallback(async () => {
+        if (!user?.username) return
+        setLoading(true)
+        const { data } = await signalsApi.getAll({ username: user.username })
+        if (data) setApiSignals(data)
+        setLoading(false)
+    }, [user?.username, refreshKey])
+
+    useEffect(() => { fetchMySignals() }, [fetchMySignals])
+
     const categories = ['Talent', 'Founder', 'Mentor', 'Instant Help']
-    
-    // Filter signals by logged in user and active category filter
-    const mySignals = signals.filter(s => {
-        const isUserMatch = s.username === user?.username
-        const isCategoryMatch = activeFilter ? s.category === activeFilter : true
-        return isUserMatch && isCategoryMatch
+
+    // Backend signals for this user
+    const backendIds = new Set(apiSignals.map(s => s.id))
+
+    // Local-only signals (not yet in backend) for this user
+    const localOnly = localSignals.filter(s =>
+        s.username === user?.username && !backendIds.has(s.id)
+    )
+
+    // Merge and map to unified display shape
+    const allMySignals = [
+        ...apiSignals.map(s => ({
+            id: s.id,
+            title: s.title,
+            category: s.category,
+            description: s.description,
+            status: 'Active',
+            stats: { responses: s.responseCount ?? 0, offers: s.offerCount ?? 0, views: s.viewCount ?? 0 },
+            createdAt: s.createdAt,
+            strength: s.signalStrength || '7 Days',
+            source: 'backend' as const
+        })),
+        ...localOnly.map(s => ({
+            id: s.id,
+            title: s.title,
+            category: s.category,
+            description: s.description,
+            status: s.status,
+            stats: s.stats,
+            createdAt: s.createdAt ? String(s.createdAt) : undefined,
+            strength: s.strength,
+            source: 'local' as const
+        }))
+    ].filter(s => {
+        const { isExpired } = getSignalExpiration(s)
+        return !isExpired && (activeFilter ? s.category === activeFilter : true)
     })
 
-    if (!isAuthenticated || !user) return <div className="min-h-screen bg-background flex justify-center items-center text-text-muted">Loading...</div>;
+    const handleDelete = async (id: string, source: 'backend' | 'local') => {
+        if (!confirm('Delete this signal?')) return
+        setDeletingId(id)
+        if (source === 'backend') {
+            const authToken = token?.startsWith('local-')
+                ? token.replace('local-', 'dev_')
+                : (token || (user?.username ? `dev_${user.username}` : ''))
+            const { error } = await signalsApi.delete(id, authToken)
+            if (!error) {
+                setApiSignals(prev => prev.filter(s => s.id !== id))
+            } else {
+                alert('Could not delete from server: ' + error)
+            }
+        } else {
+            deleteLocalSignal(id)
+        }
+        setDeletingId(null)
+    }
+
+    if (!isAuthenticated || !user) return <div className="min-h-screen bg-background flex justify-center items-center text-text-muted">Loading...</div>
 
     return (
         <div className="min-h-screen bg-background flex justify-center">
@@ -46,77 +108,106 @@ export default function MySignals() {
                             <h1 className="text-2xl font-display">My Signals</h1>
                             <p className="text-xs text-text-secondary mt-1">Manage and track your active requests.</p>
                         </div>
-                        <button onClick={() => setIsRaiseModalOpen(true)} className="bg-primary text-white px-4 py-2 rounded-md flex items-center gap-2 hover:opacity-90">
-                            <Plus className="w-5 h-5" /> New Signal
-                        </button>
-                    </div>
-
-                    <div className="flex gap-2 mb-8 items-center">
-                        <div className="flex-1 relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                            <input type="text" placeholder="Search my signals..." className="w-full bg-white border border-border pl-10 pr-4 py-2 rounded-md text-sm outline-none focus:border-text-muted" />
-                        </div>
                         <div className="flex gap-2">
-                            <button 
-                                onClick={() => setActiveFilter(null)}
-                                className={`px-4 py-2 border rounded-md text-sm font-medium flex items-center gap-2 transition-all ${!activeFilter ? 'bg-primary text-white border-primary' : 'bg-white border-border text-text-secondary hover:bg-surface-2'}`}
+                            <button
+                                onClick={() => setRefreshKey(k => k + 1)}
+                                className="p-2 border border-border rounded-full hover:bg-surface-2 transition-all bg-white"
+                                title="Refresh"
                             >
-                                All
+                                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                             </button>
-                            {categories.map(cat => (
-                                <button 
-                                    key={cat}
-                                    onClick={() => setActiveFilter(cat)}
-                                    className={`px-4 py-2 border rounded-md text-sm font-medium transition-all ${activeFilter === cat ? 'bg-primary text-white border-primary' : 'bg-white border-border text-text-secondary hover:bg-surface-2'}`}
-                                >
-                                    {cat}
-                                </button>
-                            ))}
+                            <button onClick={() => setIsRaiseModalOpen(true)} className="bg-primary text-white px-4 py-2 rounded-md flex items-center gap-2 hover:opacity-90">
+                                <Plus className="w-5 h-5" /> New Signal
+                            </button>
                         </div>
                     </div>
 
-                    <div className="space-y-4">
-                        {mySignals.map(signal => (
-                            <div key={signal.title} className="bg-white border border-border p-5 rounded-xl transition-all hover:shadow-sm">
-                                <div className="flex justify-between items-start mb-4">
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${signal.status === 'Active' ? 'bg-accent-green/10 text-accent-green' : 'bg-accent-blue/10 text-accent-blue'
-                                        }`}>
-                                        {signal.status}
-                                    </span>
-                                    <div className="flex gap-2">
-                                        <button 
-                                            onClick={() => setEditingSignal(signal)}
-                                            className="p-1.5 text-text-muted hover:text-primary transition-all"
-                                        >
-                                            <Edit3 className="w-4 h-4" />
-                                        </button>
-                                        <button 
-                                            onClick={() => deleteSignal(signal.id)}
-                                            className="p-1.5 text-text-muted hover:text-accent-red transition-all"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                                <h3 className="font-medium text-lg mb-4">{signal.title}</h3>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex gap-6">
-                                        <div>
-                                            <p className="text-[10px] text-text-muted uppercase">Responses</p>
-                                            <p className="font-mono text-sm">{signal.stats.responses}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-text-muted uppercase">Views</p>
-                                            <p className="font-mono text-sm">{signal.stats.views}</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => setViewingInsightsSignal(signal)} className="text-primary text-sm font-medium flex items-center gap-1 hover:underline">
-                                        View Detail <ArrowUpRight className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
+                    <div className="flex gap-2 mb-8 items-center flex-wrap">
+                        <button
+                            onClick={() => setActiveFilter(null)}
+                            className={`px-4 py-2 border rounded-md text-sm font-medium transition-all ${!activeFilter ? 'bg-primary text-white border-primary' : 'bg-white border-border text-text-secondary hover:bg-surface-2'}`}
+                        >
+                            All
+                        </button>
+                        {categories.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setActiveFilter(cat)}
+                                className={`px-4 py-2 border rounded-md text-sm font-medium transition-all ${activeFilter === cat ? 'bg-primary text-white border-primary' : 'bg-white border-border text-text-secondary hover:bg-surface-2'}`}
+                            >
+                                {cat}
+                            </button>
                         ))}
                     </div>
+
+                    {loading ? (
+                        <div className="flex justify-center items-center py-24 text-text-muted gap-3">
+                            <Loader2 className="w-6 h-6 animate-spin" />
+                            <span className="text-sm">Loading your signals…</span>
+                        </div>
+                    ) : allMySignals.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-24 gap-3 text-text-muted">
+                            <p className="text-sm">No signals yet. Raise one!</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {allMySignals.map(signal => (
+                                <div key={signal.id} className="bg-white border border-border p-5 rounded-xl transition-all hover:shadow-sm">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${signal.status === 'Active' ? 'bg-accent-green/10 text-accent-green' : 'bg-accent-blue/10 text-accent-blue'}`}>
+                                                {signal.status}
+                                            </span>
+                                            {signal.source === 'local' && (
+                                                <span className="text-[9px] text-orange-500 border border-orange-200 px-1.5 py-0.5 rounded-full">Local</span>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setEditingSignal(signal)}
+                                                className="p-1.5 text-text-muted hover:text-primary transition-all"
+                                                title="Edit"
+                                            >
+                                                <Edit3 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(signal.id, signal.source)}
+                                                disabled={deletingId === signal.id}
+                                                className="p-1.5 text-text-muted hover:text-red-500 transition-all disabled:opacity-40"
+                                                title="Delete"
+                                            >
+                                                {deletingId === signal.id
+                                                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                    : <Trash2 className="w-4 h-4" />
+                                                }
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <h3 className="font-medium text-lg mb-1">{signal.title}</h3>
+                                    {signal.description && <p className="text-sm text-text-secondary mb-4 line-clamp-2">{signal.description}</p>}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex gap-6">
+                                            <div>
+                                                <p className="text-[10px] text-text-muted uppercase">Responses</p>
+                                                <p className="font-mono text-sm">{signal.stats.responses}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-text-muted uppercase">Offers</p>
+                                                <p className="font-mono text-sm">{signal.stats.offers}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-text-muted uppercase">Views</p>
+                                                <p className="font-mono text-sm">{signal.stats.views}</p>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setViewingInsightsSignal(signal)} className="text-primary text-sm font-medium flex items-center gap-1 hover:underline">
+                                            View Detail <ArrowUpRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </main>
 
                 <aside className="hidden lg:block w-[320px] p-8 space-y-6">
@@ -137,7 +228,6 @@ export default function MySignals() {
                         <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/5 rounded-full blur-2xl" />
                     </div>
 
-                    {/* Sponsored Card */}
                     <div className="bg-white border border-border p-6 rounded-xl shadow-sm">
                         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted mb-3">Sponsored</p>
                         <h3 className="font-display text-lg mb-2 leading-snug">Want to run ads here?</h3>
@@ -151,19 +241,20 @@ export default function MySignals() {
                     </div>
                 </aside>
             </div>
-            
-            <RaiseSignalModal 
-                isOpen={isRaiseModalOpen || !!editingSignal} 
+
+            <RaiseSignalModal
+                isOpen={isRaiseModalOpen || !!editingSignal}
                 onClose={() => {
                     setIsRaiseModalOpen(false)
                     setEditingSignal(null)
-                }} 
+                    setRefreshKey(k => k + 1)
+                }}
                 editSignal={editingSignal}
             />
             {viewingInsightsSignal && (
-                <InsightsModal 
-                    isOpen={!!viewingInsightsSignal} 
-                    onClose={() => setViewingInsightsSignal(null)} 
+                <InsightsModal
+                    isOpen={!!viewingInsightsSignal}
+                    onClose={() => setViewingInsightsSignal(null)}
                     stats={viewingInsightsSignal.stats}
                     signalTitle={viewingInsightsSignal.title}
                 />
