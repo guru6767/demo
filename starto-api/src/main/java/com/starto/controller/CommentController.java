@@ -5,6 +5,8 @@ import com.starto.dto.CommentResponseDTO;
 import com.starto.service.CommentService;
 import com.starto.service.UserService;
 import lombok.RequiredArgsConstructor;
+import com.starto.service.WebSocketService;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +22,7 @@ public class CommentController {
 
     private final CommentService commentService;
     private final UserService userService;
+    private final WebSocketService webSocketService;
 
     // saving the comment into DB
     @PostMapping
@@ -38,8 +41,12 @@ public class CommentController {
                         return ResponseEntity.status(400).body(
                                 Map.of("error", "Comment cannot be empty"));
                     }
-                    return ResponseEntity.ok(
-                            commentService.addComment(user, signalId, dto.getContent()));
+
+                    var saved = commentService.addComment(user, signalId, dto.getContent());
+
+                    // SEND REAL-TIME UPDATE
+                    webSocketService.send("/topic/comments/" + signalId, saved);
+                    return ResponseEntity.ok(saved);
                 })
                 .orElse(ResponseEntity.status(401).build());
     }
@@ -62,8 +69,15 @@ public class CommentController {
                         return ResponseEntity.status(400).body(
                                 Map.of("error", "Reply cannot be empty"));
                     }
-                    return ResponseEntity.ok(
-                            commentService.addReply(user, signalId, parentId, dto.getContent()));
+
+                    // SAVE FIRST
+                    var savedReply = commentService.addReply(user, signalId, parentId, dto.getContent());
+
+                    // THEN SEND WEBSOCKET
+                    webSocketService.send("/topic/comments/" + signalId, savedReply);
+
+                    // RETURN RESPONSE
+                    return ResponseEntity.ok(savedReply);
                 })
                 .orElse(ResponseEntity.status(401).build());
     }
@@ -88,7 +102,15 @@ public class CommentController {
         return userService.getUserByFirebaseUid(
                 authentication.getPrincipal().toString())
                 .map(user -> {
+
+                    // delete from DB
                     commentService.deleteComment(user, commentId);
+
+                    // notify all clients
+                    webSocketService.send(
+                            "/topic/comments/" + signalId,
+                            Map.of("type", "DELETE", "commentId", commentId));
+
                     return ResponseEntity.ok(Map.of("message", "Deleted successfully"));
                 })
                 .orElse(ResponseEntity.status(401).build());

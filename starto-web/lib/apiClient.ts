@@ -46,6 +46,8 @@ export interface ApiUser {
     plan: string;
     isOnline: boolean;
     lastSeen: string;
+    lat: number | null;
+    lng: number | null;
     signalCount?: number;
     networkSize?: number;
 }
@@ -56,6 +58,52 @@ export interface ApiComment {
     username: string;
     createdAt: string;
     replies?: ApiComment[];
+}
+
+export interface ApiExploreRequest {
+    location: string;
+    industry: string;
+    budget: number;
+    stage: string;
+    targetCustomer: string;
+}
+
+export interface ApiExploreResponse {
+    marketDemand: {
+        score: number;
+        drivers: string[];
+        sources: string[];
+    };
+    competitors: {
+        name: string;
+        location: string;
+        stage: string;
+        description: string;
+        threatLevel: string;
+    }[];
+    risks: {
+        title: string;
+        description: string;
+        severity: string;
+        mitigation: string;
+    }[];
+    budgetFeasibility: {
+        canBuild: string[];
+        actualNeed: string[];
+        verdict: string;
+    };
+    governmentSchemes: {
+        name: string;
+        body: string;
+        benefits: string[];
+        eligibility: string;
+        applyUrl: string;
+    }[];
+    actionPlan: {
+        range: string;
+        tasks: string[];
+    }[];
+    confidenceScore: number;
 }
 
 export interface CreateSignalPayload {
@@ -130,6 +178,10 @@ export const signalsApi = {
         return apiFetch<ApiSignal[]>(`/api/signals${qs}`);
     },
 
+    /** GET /api/signals/mine — requires auth */
+    getMine: (token: string) =>
+        apiFetch<ApiSignal[]>('/api/signals/mine', {}, token),
+
     /** GET /api/signals/:id — public */
     getById: (id: string) =>
         apiFetch<ApiSignal>(`/api/signals/${id}`),
@@ -144,6 +196,13 @@ export const signalsApi = {
     /** DELETE /api/signals/:id — requires auth */
     delete: (id: string, token: string) =>
         apiFetch<void>(`/api/signals/${id}`, { method: 'DELETE' }, token),
+
+    /** PUT /api/signals/:id — requires auth */
+    update: (id: string, payload: Partial<CreateSignalPayload>, token: string) =>
+        apiFetch<ApiSignal>(`/api/signals/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload),
+        }, token),
 };
 
 // ─── User API ────────────────────────────────────────────────────────────────
@@ -170,6 +229,19 @@ export const usersApi = {
             method: 'PUT',
             body: JSON.stringify(payload),
         }, token),
+    
+    /** POST /api/users/heartbeat — requires auth */
+    heartbeat: (token: string) =>
+        apiFetch<void>('/api/users/heartbeat', { method: 'POST' }, token),
+
+    /** GET /api/users/nearby — requires auth */
+    getNearby: (params: { role?: string; lat: number; lng: number; radius?: number }, token: string) => {
+        const qs = '?' + Object.entries(params)
+            .filter(([, v]) => v != null)
+            .map(([k, v]) => `${k}=${v}`)
+            .join('&');
+        return apiFetch<ApiUser[]>(`/api/users/nearby${qs}`, {}, token);
+    },
 };
 
 // ─── Comment API ─────────────────────────────────────────────────────────────
@@ -190,10 +262,10 @@ export const commentsApi = {
 // ─── Connection API ──────────────────────────────────────────────────────────
 export const connectionsApi = {
     /** POST /api/connections/request */
-    sendRequest: (signalId: string, message: string, token: string) =>
+    sendRequest: (signalId: string | null, message: string, token: string, targetUsername?: string) =>
         apiFetch<any>('/api/connections/request', {
             method: 'POST',
-            body: JSON.stringify({ signalId, message }),
+            body: JSON.stringify({ signalId, message, targetUsername }),
         }, token),
 
     /** GET /api/connections/pending — incoming for founder */
@@ -233,6 +305,16 @@ export const offersApi = {
 
     getWhatsappLink: (id: string, token: string) =>
         apiFetch<{ link: string }>(`/api/offers/${id}/whatsapp`, {}, token),
+};
+
+// ─── Explore API ─────────────────────────────────────────────────────────────
+export const exploreApi = {
+    /** POST /api/explore/analyze */
+    analyze: (payload: ApiExploreRequest, token?: string) =>
+        apiFetch<ApiExploreResponse>('/api/explore/analyze', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        }, token),
 };
 
 export default apiFetch;

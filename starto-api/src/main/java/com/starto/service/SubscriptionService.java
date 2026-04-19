@@ -1,160 +1,331 @@
 package com.starto.service;
 
+import com.razorpay.Payment;
 import com.razorpay.RazorpayClient;
-import com.razorpay.RazorpayException;
-import com.razorpay.Subscription;
+import com.starto.config.PlanConfig;
+import com.starto.dto.SubscriptionResponseDTO;
+import com.starto.enums.BillingType;
+import com.starto.enums.Plan;
+import com.starto.model.PlanEntity;
+import com.starto.model.Subscription;
 import com.starto.model.User;
-import com.starto.repository.UserRepository;
+import com.starto.repository.PlanRepository;
 import com.starto.repository.SubscriptionRepository;
+import com.starto.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.json.JSONObject;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import org.json.JSONObject;
+import org.springframework.stereotype.Service;
+import com.starto.service.EmailService;
+import com.starto.service.NotificationService;
+import com.razorpay.Payment;
+
+import jakarta.transaction.Transactional;
+
+import com.starto.repository.PlanRepository;
+import java.util.Map;
+import java.util.List;
+import java.util.UUID;
+
 import java.time.OffsetDateTime;
-import java.util.HexFormat;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class SubscriptionService {
 
-    private final UserRepository userRepository;
     private final SubscriptionRepository subscriptionRepository;
-    private final RazorpayClient razorpayClient;
+    private final UserRepository userRepository;
+    private final RazorpayService razorpayService;
+    private final EmailService emailService;
+    private final NotificationService notificationService;
+    private final PlanRepository planRepository;
 
-    @Value("${razorpay.plan.id}")
-    private String planId;
+    public SubscriptionResponseDTO createOrder(User user, String plan) {
 
-    @Value("${razorpay.key.secret}")
-    private String keySecret;
+        Plan planEnum = Plan.valueOf(plan.toUpperCase());
 
-    // Step 1: Create Razorpay subscription and return sub ID to frontend
-    public String createSubscription(String firebaseUid) throws RazorpayException {
-        User user = userRepository.findByFirebaseUid(firebaseUid)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        PlanEntity planEntity = planRepository.findByCode(planEnum)
+                .orElseThrow(() -> new RuntimeException("Plan not found"));
 
-        JSONObject subRequest = new JSONObject();
-        subRequest.put("plan_id", planId);
-        subRequest.put("total_count", 12); // 12 months
-        subRequest.put("quantity", 1);
-        subRequest.put("notes", new JSONObject().put("firebase_uid", firebaseUid));
+        int amountPaise = planEntity.getPricePaise();
 
-        Subscription subscription = razorpayClient.subscriptions.create(subRequest);
-        String razorpaySubId = subscription.get("id");
+        String orderId = null;
+        String subscriptionId = null;
 
-        // Save pending subscription in DB
-        com.starto.model.Subscription sub = com.starto.model.Subscription.builder()
+        // 🔥 HANDLE BOTH FLOWS
+        if (planEntity.getBillingType() == BillingType.ONE_TIME) {
+
+            // ✅ ONE-TIME PAYMENT
+            orderId = razorpayService.createOrder(amountPaise);
+
+        } else {
+
+            // ✅ RECURRING PAYMENT
+            if (planEntity.getRazorpayPlanId() == null) {
+                throw new RuntimeException("Razorpay plan ID not configured for this plan");
+            }
+
+            subscriptionId = razorpayService.createSubscription(
+                    planEntity.getRazorpayPlanId());
+        }
+
+        // 🔥 SAVE SUBSCRIPTION
+        Subscription subscription = Subscription.builder()
                 .user(user)
-                .plan("premium")
-                .razorpaySubId(razorpaySubId)
-                .status("pending")
-                .amount(99900)
-                .currency("INR")
-                .startedAt(OffsetDateTime.now())
-                .expiresAt(OffsetDateTime.now().plusMonths(1))
+                .plan(planEnum.name())
+                .amountPaid(amountPaise)
+                .razorpayOrderId(orderId) // null for recurring
+                .razorpaySubscriptionId(subscriptionId) // null for one-time
+                .status("PENDING")
+                .createdAt(OffsetDateTime.now())
                 .build();
 
-        subscriptionRepository.save(sub);
+        Subscription saved = subscriptionRepository.save(subscription);
 
-        return razorpaySubId;
+        // 🔥 RESPONSE TO FRONTEND
+        return SubscriptionResponseDTO.builder()
+                .id(saved.getId())
+                .plan(saved.getPlan())
+                .status(saved.getStatus())
+                .amountPaid(saved.getAmountPaid())
+                .razorpayOrderId(orderId)
+                .razorpaySubscriptionId(subscriptionId) // 👈 important
+                .build();
     }
 
-    // Step 2: Verify payment signature from frontend after payment
+    // `signature` param + corrected variable names + Plan enum lookup
     @Transactional
-    public void verifyAndActivate(String razorpaySubId, String razorpayPaymentId, String razorpaySignature) {
-        // Verify signature
-        String payload = razorpayPaymentId + "|" + razorpaySubId;
-        if (!verifySignature(payload, razorpaySignature)) {
-            throw new RuntimeException("Invalid payment signature");
+    public void activateSubscription(String razorpayOrderId, String razorpayPaymentId, String signature) {
+        Subscription subscription = subscriptionRepository
+                .findByRazorpayOrderId(razorpayOrderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        if ("ACTIVE".equals(subscription.getStatus())) {
+            throw new RuntimeException("Subscription already activated");
         }
 
-        // Find subscription in DB
-        subscriptionRepository.findAll().stream()
-                .filter(s -> razorpaySubId.equals(s.getRazorpaySubId()))
-                .findFirst()
-                .ifPresent(sub -> {
-                    sub.setStatus("active");
-                    sub.setPaymentId(razorpayPaymentId);
-                    subscriptionRepository.save(sub);
+        boolean verified = razorpayService.verifySignature(razorpayOrderId, razorpayPaymentId, signature);
+        if (!verified)
+            throw new RuntimeException("Payment verification failed");
 
-                    // Upgrade user plan
-                    User user = sub.getUser();
-                    user.setPlan("premium");
-                    user.setPlanExpiresAt(OffsetDateTime.now().plusMonths(1));
-                    userRepository.save(user);
+        Plan planEnum = Plan.valueOf(subscription.getPlan().toUpperCase()); // enum lookup
+        PlanEntity planEntity = planRepository.findByCode(planEnum)
+                .orElseThrow(() -> new RuntimeException("Plan not found"));
 
-                    log.info("User {} upgraded to premium", user.getFirebaseUid());
+        int days = planEntity.getDurationDays();
+        OffsetDateTime now = OffsetDateTime.now();
+
+        subscription.setRazorpayPaymentId(razorpayPaymentId);
+        subscription.setStatus("ACTIVE");
+        subscription.setStartsAt(now);
+        subscription.setExpiresAt(now.plusDays(days));
+        subscriptionRepository.save(subscription);
+
+        User user = userRepository.findById(subscription.getUser().getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Plan previousPlan = user.getPlan();
+
+        // expire all other active subscriptions — handles upgrade case
+        subscriptionRepository.findActiveByUserId(user.getId())
+                .forEach(sub -> {
+                    if (!sub.getId().equals(subscription.getId())) {
+                        sub.setStatus("SUPERSEDED");
+                        subscriptionRepository.save(sub);
+                    }
                 });
+
+        // update user plan
+        user.setPlan(planEnum);
+        user.setPlanExpiresAt(subscription.getExpiresAt());
+        userRepository.saveAndFlush(user);
+
+        // send payment receipt
+        emailService.sendPaymentSuccessEmail(
+                user,
+                subscription.getPlan(),
+                subscription.getAmountPaid(),
+                razorpayOrderId);
+
+        // send upgrade or welcome email
+        if (previousPlan != Plan.EXPLORER && previousPlan != planEnum) {
+            System.out.println("➡️ About to send subscription email to: " + user.getEmail());
+            emailService.sendPlanUpgradeEmail(user, previousPlan.name(), planEnum.name());
+            System.out.println("➡️ Email method called");
+        } else {
+            emailService.sendWelcomePlanEmail(user);
+        }
+
+        // in-app notification
+        notificationService.send(
+                user.getId(),
+                "PAYMENT_SUCCESS",
+                "Payment Successful!",
+                "Your " + subscription.getPlan() + " plan is now active.",
+                Map.of(
+                        "plan", subscription.getPlan(),
+                        "expiresAt", subscription.getExpiresAt().toString(),
+                        "amountPaid", subscription.getAmountPaid()));
     }
 
-    // Step 3: Webhook handler — auto renew every month
+    public boolean isPlanActive(User user) {
+        if (user.getPlan().name().equalsIgnoreCase("EXPLORER"))
+            return true;
+        return user.getPlanExpiresAt() != null &&
+                user.getPlanExpiresAt().isAfter(OffsetDateTime.now());
+    }
+
+    public boolean canUnlockWhatsapp(User user) {
+        Plan planEnum = Plan.valueOf(user.getPlan().name().toUpperCase());
+        return isPlanActive(user) &&
+                PlanConfig.WHATSAPP_UNLOCK.getOrDefault(planEnum, false);
+    }
+
+    public int getMaxSignals(User user) {
+        Plan planEnum = Plan.valueOf(user.getPlan().name().toUpperCase());
+        return PlanConfig.MAX_SIGNALS.getOrDefault(planEnum, 2);
+    }
+
+    public int getMaxOffers(User user) {
+        Plan planEnum = Plan.valueOf(user.getPlan().name().toUpperCase());
+        return PlanConfig.MAX_OFFERS.getOrDefault(planEnum, 3);
+    }
+
+    public List<SubscriptionResponseDTO> getPaymentHistory(UUID userId) {
+        return subscriptionRepository.findByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(sub -> SubscriptionResponseDTO.builder()
+                        .id(sub.getId())
+                        .plan(sub.getPlan())
+                        .status(sub.getStatus())
+                        .amountPaid(sub.getAmountPaid())
+                        .razorpayOrderId(sub.getRazorpayOrderId())
+                        .startsAt(sub.getStartsAt())
+                        .expiresAt(sub.getExpiresAt())
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    public SubscriptionResponseDTO upgradePlan(User user, String newPlan) {
+
+        Plan newPlanEnum = Plan.valueOf(newPlan.toUpperCase());
+        Plan currentPlan = user.getPlan();
+
+        // same plan check
+        if (currentPlan == newPlanEnum) {
+            throw new RuntimeException("You are already on " + newPlan + " plan");
+        }
+
+        // cant switch to free
+        if (newPlanEnum == Plan.EXPLORER) {
+            throw new RuntimeException("Cannot switch to free plan manually");
+        }
+
+        // check plan hierarchy — prevent downgrade
+        int currentPlanPrice = PlanConfig.PLAN_PRICE_PAISE.getOrDefault(currentPlan, 0);
+        int newPlanPrice = PlanConfig.PLAN_PRICE_PAISE.getOrDefault(newPlanEnum, 0);
+
+        if (newPlanPrice < currentPlanPrice) {
+            throw new RuntimeException(
+                    "Cannot downgrade from " + currentPlan.name() +
+                            " to " + newPlan + ". Please wait for your current plan to expire.");
+        }
+
+        // check if current plan is active
+        boolean isCurrentActive = user.getPlanExpiresAt() != null &&
+                user.getPlanExpiresAt().isAfter(OffsetDateTime.now());
+
+        if (isCurrentActive) {
+            // calculate remaining days on current plan
+            long remainingDays = java.time.temporal.ChronoUnit.DAYS.between(
+                    OffsetDateTime.now(), user.getPlanExpiresAt());
+            System.out.println("User has " + remainingDays + " days remaining on " + currentPlan.name());
+            // note: remaining days are forfeited on upgrade
+            // you can add credit logic here later if needed
+        }
+
+        // create one-time order for new plan
+        int amountPaise = PlanConfig.PLAN_PRICE_PAISE.get(newPlanEnum);
+        String orderId = razorpayService.createOrder(amountPaise);
+
+        com.starto.model.Subscription subscription = com.starto.model.Subscription.builder()
+                .user(user)
+                .plan(newPlanEnum.name())
+                .amountPaid(amountPaise)
+                .razorpayOrderId(orderId)
+                .status("PENDING")
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        com.starto.model.Subscription saved = subscriptionRepository.save(subscription);
+
+        return SubscriptionResponseDTO.builder()
+                .id(saved.getId())
+                .plan(saved.getPlan())
+                .status(saved.getStatus())
+                .amountPaid(saved.getAmountPaid())
+                .razorpayOrderId(saved.getRazorpayOrderId())
+                .build();
+    }
+
+    public Map<String, Object> getCurrentPlanStatus(User user) {
+
+        OffsetDateTime now = OffsetDateTime.now();
+
+        boolean isActive = user.getPlanExpiresAt() == null
+                || user.getPlanExpiresAt().isAfter(now);
+
+        long daysLeft = 0;
+
+        if (user.getPlanExpiresAt() != null) {
+            daysLeft = java.time.temporal.ChronoUnit.DAYS.between(
+                    now,
+                    user.getPlanExpiresAt());
+        }
+
+        return Map.of(
+                "plan", user.getPlan().name(),
+                "isActive", isActive,
+                "daysLeft", Math.max(daysLeft, 0),
+                "expiresAt", user.getPlanExpiresAt());
+    }
+
     @Transactional
-    public void handleWebhook(String payload, String signature) {
-        if (!verifyWebhookSignature(payload, signature)) {
-            throw new RuntimeException("Invalid webhook signature");
+    public void activateSubscriptionBySubscription(String subscriptionId, String paymentId) {
+
+        Subscription subscription = subscriptionRepository
+                .findByRazorpaySubscriptionId(subscriptionId)
+                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+
+        if ("ACTIVE".equals(subscription.getStatus())) {
+            throw new RuntimeException("Already active");
         }
 
-        JSONObject event = new JSONObject(payload);
-        String eventType = event.getString("event");
+        // ✅ HERE IS WHERE YOUR CODE GOES
+        // JSONObject payment = razorpayService.fetchPayment(paymentId);
 
-        if (eventType.equals("subscription.charged")) {
-            JSONObject subData = event
-                    .getJSONObject("payload")
-                    .getJSONObject("subscription")
-                    .getJSONObject("entity");
+        // String fetchedSubId = payment.optString("subscription_id");
 
-            String razorpaySubId = subData.getString("id");
-            String firebaseUid = subData.getJSONObject("notes").getString("firebase_uid");
+        // if (!subscriptionId.equals(fetchedSubId)) {
+        // throw new RuntimeException("Invalid subscription-payment mapping");
+        // }
 
-            upgradeUserPlan(firebaseUid, "premium", 1);
-            log.info("Subscription renewed for {}", firebaseUid);
-        }
+        subscription.setStatus("ACTIVE");
+        subscription.setRazorpayPaymentId(paymentId);
 
-        if (eventType.equals("subscription.cancelled") || eventType.equals("subscription.expired")) {
-            JSONObject subData = event
-                    .getJSONObject("payload")
-                    .getJSONObject("subscription")
-                    .getJSONObject("entity");
+        OffsetDateTime now = OffsetDateTime.now();
 
-            String firebaseUid = subData.getJSONObject("notes").getString("firebase_uid");
-            upgradeUserPlan(firebaseUid, "free", 0);
-            log.info("Subscription cancelled for {}", firebaseUid);
-        }
-    }
+        Plan planEnum = Plan.valueOf(subscription.getPlan().toUpperCase());
+        PlanEntity planEntity = planRepository.findByCode(planEnum)
+                .orElseThrow(() -> new RuntimeException("Plan not found"));
 
-    @Transactional
-    public void upgradeUserPlan(String firebaseUid, String plan, int durationMonths) {
-        userRepository.findByFirebaseUid(firebaseUid).ifPresent(user -> {
-            user.setPlan(plan);
-            user.setPlanExpiresAt(durationMonths > 0
-                    ? OffsetDateTime.now().plusMonths(durationMonths)
-                    : null);
-            userRepository.save(user);
-        });
-    }
+        subscription.setStartsAt(now);
+        subscription.setExpiresAt(now.plusDays(planEntity.getDurationDays()));
 
-    private boolean verifySignature(String payload, String signature) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(keySecret.getBytes(), "HmacSHA256"));
-            byte[] hash = mac.doFinal(payload.getBytes());
-            String generated = HexFormat.of().formatHex(hash);
-            return generated.equals(signature);
-        } catch (Exception e) {
-            return false;
-        }
-    }
+        subscriptionRepository.save(subscription);
 
-    private boolean verifyWebhookSignature(String payload, String signature) {
-        return verifySignature(payload, signature);
-    }
-
-    public boolean canPerformAction(User user, String feature) {
-        return user.getPlan() != null && user.getPlan().equals("premium");
+        User user = subscription.getUser();
+        user.setPlan(planEnum);
+        user.setPlanExpiresAt(subscription.getExpiresAt());
+        userRepository.save(user);
     }
 }

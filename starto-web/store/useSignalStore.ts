@@ -31,7 +31,7 @@ export interface Signal {
 
 interface SignalState {
     signals: Signal[];
-    addSignal: (signal: Omit<Signal, 'id' | 'status' | 'stats'>) => void;
+    addSignal: (signal: Omit<Signal, 'id' | 'status' | 'stats'>, id?: string) => void;
     deleteSignal: (id: string) => void;
     updateSignal: (id: string, signal: Partial<Omit<Signal, 'id' | 'status' | 'stats'>>) => void;
     incrementOffer: (id: string) => void;
@@ -44,10 +44,10 @@ export const useSignalStore = create<SignalState>()(
     persist(
         (set, get) => ({
             signals: [],
-            addSignal: (newSignal) => set((state) => {
+            addSignal: (newSignal, id) => set((state) => {
                 const signal: Signal = {
                     ...newSignal,
-                    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7),
+                    id: id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7)),
                     status: 'Active',
                     stats: { responses: 0, offers: 0, views: 0 },
                     createdAt: Date.now()

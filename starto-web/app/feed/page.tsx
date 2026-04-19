@@ -213,21 +213,21 @@ export default function HomeFeed() {
                     ) : (
                         <div className="space-y-4">
                             {displaySignals.map(signal => (
-                                <div key={signal.id} onClick={() => requireAuth(() => {})}>
-                                    <SignalCard
-                                        id={signal.id}
-                                        title={signal.title}
-                                        username={signal.username}
-                                        timeAgo={signal.timeAgo}
-                                        category={signal.category}
-                                        description={signal.description}
-                                        strength={signal.strength || (signal as any).signalStrength}
-                                        stats={signal.stats}
-                                        hideViews={true}
-                                        userPlan={signal.userPlan}
-                                        createdAt={signal.createdAt}
-                                    />
-                                </div>
+                                <SignalCard
+                                    key={signal.id}
+                                    id={signal.id}
+                                    title={signal.title}
+                                    username={signal.username}
+                                    timeAgo={signal.timeAgo}
+                                    category={signal.category}
+                                    description={signal.description}
+                                    strength={signal.strength || (signal as any).signalStrength}
+                                    stats={signal.stats}
+                                    hideViews={true}
+                                    userPlan={signal.userPlan}
+                                    createdAt={signal.createdAt}
+                                    onRefresh={() => setRefreshKey(k => k + 1)}
+                                />
                             ))}
                         </div>
                     )}

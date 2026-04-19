@@ -1,15 +1,20 @@
 package com.starto.controller;
 
 import com.starto.dto.ConnectionRequestDTO;
+import com.starto.dto.ConnectionResponseDTO;
 import com.starto.model.Connection;
+import com.starto.model.User;
+import com.starto.enums.Plan;
 import com.starto.service.ConnectionService;
+import com.starto.service.PlanService;
 import com.starto.service.UserService;
+import com.starto.service.WebSocketService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -20,116 +25,154 @@ public class ConnectionController {
 
     private final ConnectionService connectionService;
     private final UserService userService;
+    private final WebSocketService webSocketService;
+    private final PlanService planService;
 
-    // talent sends request
+    // 🔹 Helper method
+    private User getUser(Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            return null;
+        }
+        return userService
+                .getUserByFirebaseUid(authentication.getPrincipal().toString())
+                .orElse(null);
+    }
+
+    // =========================
+    // SEND REQUEST
+    // =========================
     @PostMapping("/request")
     public ResponseEntity<?> sendRequest(
             Authentication authentication,
             @RequestBody ConnectionRequestDTO dto) {
 
-        if (authentication == null)
+        User user = getUser(authentication);
+        if (user == null)
             return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> ResponseEntity.ok(
-                        connectionService.sendRequest(user, dto.getSignalId(), dto.getMessage())))
-                .orElse(ResponseEntity.status(401).build());
+        Connection connection = connectionService.sendRequest(
+                user,
+                dto.getReceiverId(),
+                dto.getSignalId(),
+                dto.getMessage());
+
+        webSocketService.send(
+                "/topic/connections/" + connection.getReceiver().getId(),
+                Map.of("type", "NEW_REQUEST", "data", connection));
+
+        return ResponseEntity.ok(ConnectionResponseDTO.from(connection));
     }
 
-    // founder accepts
+    // =========================
+    // ACCEPT REQUEST
+    // =========================
     @PutMapping("/{connectionId}/accept")
     public ResponseEntity<?> acceptRequest(
             Authentication authentication,
             @PathVariable UUID connectionId) {
 
-        if (authentication == null)
+        User user = getUser(authentication);
+        if (user == null)
             return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> ResponseEntity.ok(connectionService.acceptRequest(user, connectionId)))
-                .orElse(ResponseEntity.status(401).build());
+        Connection updated = connectionService.acceptRequest(user, connectionId);
+
+        webSocketService.send(
+                "/topic/connections/" + updated.getRequester().getId(),
+                Map.of("type", "ACCEPT", "data", updated));
+
+        return ResponseEntity.ok(ConnectionResponseDTO.from(updated));
     }
 
-    // founder rejects
+    // =========================
+    // REJECT REQUEST
+    // =========================
     @PutMapping("/{connectionId}/reject")
     public ResponseEntity<?> rejectRequest(
             Authentication authentication,
             @PathVariable UUID connectionId) {
 
-        if (authentication == null)
+        User user = getUser(authentication);
+        if (user == null)
             return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> ResponseEntity.ok(connectionService.rejectRequest(user, connectionId)))
-                .orElse(ResponseEntity.status(401).build());
+        Connection updated = connectionService.rejectRequest(user, connectionId);
+
+        webSocketService.send(
+                "/topic/connections/" + updated.getRequester().getId(),
+                Map.of("type", "REJECT", "data", updated));
+
+        return ResponseEntity.ok(ConnectionResponseDTO.from(updated));
     }
 
-    // founder sees pending requests
+    // =========================
+    // PENDING
+    // =========================
     @GetMapping("/pending")
-    public ResponseEntity<List<Connection>> getPending(Authentication authentication) {
-        if (authentication == null)
+    public ResponseEntity<?> getPending(Authentication authentication) {
+        User user = getUser(authentication);
+        if (user == null)
             return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> ResponseEntity.ok(connectionService.getPendingRequests(user.getId())))
-                .orElse(ResponseEntity.status(401).build());
+        return ResponseEntity.ok(
+                connectionService.getPendingRequests(user.getId()));
     }
 
-    // talent sees sent requests
+    // =========================
+    // SENT
+    // =========================
     @GetMapping("/sent")
-    public ResponseEntity<List<Connection>> getSent(Authentication authentication) {
-        if (authentication == null)
+    public ResponseEntity<?> getSent(Authentication authentication) {
+        User user = getUser(authentication);
+        if (user == null)
             return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> ResponseEntity.ok(connectionService.getSentRequests(user.getId())))
-                .orElse(ResponseEntity.status(401).build());
+        return ResponseEntity.ok(
+                connectionService.getSentRequests(user.getId()));
     }
 
-    // get accepted connections
+    // =========================
+    // ACCEPTED
+    // =========================
     @GetMapping("/accepted")
-    public ResponseEntity<List<Connection>> getAccepted(Authentication authentication) {
-        if (authentication == null)
+    public ResponseEntity<?> getAccepted(Authentication authentication) {
+        User user = getUser(authentication);
+        if (user == null)
             return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> ResponseEntity.ok(connectionService.getAcceptedConnections(user.getId())))
-                .orElse(ResponseEntity.status(401).build());
+        return ResponseEntity.ok(
+                connectionService.getAcceptedConnections(user.getId()));
     }
 
-    // get whatsapp link after acceptance
+    // =========================
+    // 🔥 WHATSAPP LINK (MONETIZATION POINT)
+    // =========================
     @GetMapping("/{connectionId}/whatsapp")
     public ResponseEntity<?> getWhatsappLink(
             Authentication authentication,
             @PathVariable UUID connectionId) {
 
-        if (authentication == null)
+        User user = getUser(authentication);
+        if (user == null)
             return ResponseEntity.status(401).build();
+        Plan plan = user.getPlan();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> {
-                    Connection connection = connectionService.getConnectionById(connectionId);
+        // 🔥 PLAN CHECK (VERY IMPORTANT)
+        if (!planService.hasWhatsappAccess(plan)) {
+            return ResponseEntity.status(403).body(
+                    Map.of("error", "Upgrade your plan to unlock WhatsApp contact"));
+        }
 
-                    // only founder (receiver) can access whatsapp link
-                    if (connection.getReceiverId().equals(user.getId())) {
-                        String link = connectionService.getWhatsappLink(user, connectionId);
-                        return ResponseEntity.ok(Map.of("whatsappUrl", link));
-                    }
+        Connection connection = connectionService.getConnectionById(connectionId);
 
-                    // talent (requester) can only access if premium
-                    if (connection.getRequesterId().equals(user.getId())) {
-                        if (user.getPlan() != null && user.getPlan().equalsIgnoreCase("premium")) {
-                            String link = connectionService.getWhatsappLink(user, connectionId);
-                            return ResponseEntity.ok(Map.of("whatsappUrl", link));
-                        } else {
-                            return ResponseEntity.status(403).body(Map.of(
-                                    "error", "Upgrade to premium to initiate contact",
-                                    "upgradeUrl", "/api/subscriptions/upgrade"));
-                        }
-                    }
+        // Security check
+        if (!connection.getRequester().getId().equals(user.getId()) &&
+                !connection.getReceiver().getId().equals(user.getId())) {
+            return ResponseEntity.status(403).body(Map.of("error", "Forbidden"));
+        }
 
-                    return ResponseEntity.status(403).body(Map.of("error", "Forbidden"));
-                })
-                .orElse(ResponseEntity.status(401).build());
+        String link = connectionService.getWhatsappLink(user, connectionId);
+
+        return ResponseEntity.ok(Map.of("whatsappUrl", link));
     }
 }

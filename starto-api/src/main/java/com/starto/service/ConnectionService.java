@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,108 +21,211 @@ public class ConnectionService {
     private final ConnectionRepository connectionRepository;
     private final SignalRepository signalRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
-    // talent sends request to founder
+    // SIGNAL BASED REQUEST
+
     @Transactional
-    public Connection sendRequest(User sender, UUID signalId, String message) {
+    public Connection sendRequest(User sender,
+            UUID receiverId,
+            UUID signalId,
+            String message) {
 
-        // check if talent already has ANY pending/accepted request to this founder
-        Signal signal = signalRepository.findById(signalId)
-                .orElseThrow(() -> new RuntimeException("Signal not found"));
+        User receiver;
 
-        // block if already sent ANY request to this founder (not just this signal)
-        connectionRepository.findByRequesterIdAndReceiverId(sender.getId(), signal.getUser().getId())
-                .ifPresent(r -> {
-                    throw new RuntimeException("You already sent a request to this founder");
-                });
+        // CASE 1: SIGNAL BASED REQUEST
+        if (signalId != null) {
 
-        Connection request = Connection.builder()
+            Signal signal = signalRepository.findById(signalId)
+                    .orElseThrow(() -> new RuntimeException("Signal not found"));
+
+            receiver = signal.getUser();
+        }
+
+        // CASE 2: PROFILE BASED REQUEST
+        else if (receiverId != null) {
+
+            receiver = userRepository.findById(receiverId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+        }
+
+        // invalid request
+        else {
+            throw new RuntimeException("receiverId or signalId required");
+        }
+
+        // prevent self request
+        if (sender.getId().equals(receiver.getId())) {
+            throw new RuntimeException("Cannot send request to yourself");
+        }
+
+        // duplicate check
+        boolean exists = connectionRepository
+                .existsByRequester_IdAndReceiver_IdAndStatus(
+                        sender.getId(),
+                        receiver.getId(),
+                        "PENDING");
+
+        if (exists) {
+            throw new RuntimeException("Request already exists");
+        }
+
+        Connection connection = Connection.builder()
                 .requester(sender)
-                .receiver(signal.getUser())
-                .signal(signal)
+                .receiver(receiver)
+                .signal(signalId != null
+                        ? signalRepository.findById(signalId).orElse(null)
+                        : null)
                 .message(message)
-                .status("pending")
+                .status("PENDING")
                 .build();
 
-        return connectionRepository.save(request);
-    }
-
-    // founder accepts
-    @Transactional
-    public Connection acceptRequest(User founder, UUID connectionId) {
-        Connection connection = connectionRepository.findById(connectionId)
-                .orElseThrow(() -> new RuntimeException("Connection not found"));
-
-        if (!connection.getReceiverId().equals(founder.getId())) {
-            throw new RuntimeException("Forbidden: not your request");
-        }
-
-        connection.setStatus("accepted");
         return connectionRepository.save(connection);
     }
 
-    // founder rejects
+    // PROFILE BASED REQUEST
+
+    // @Transactional
+    // public Connection sendProfileRequest(User sender, UUID receiverId) {
+
+    // User receiver = userRepository.findById(receiverId)
+    // .orElseThrow(() -> new RuntimeException("User not found"));
+
+    // // prevent self request
+    // if (sender.getId().equals(receiverId)) {
+    // throw new RuntimeException("Cannot connect with yourself");
+    // }
+
+    // // duplicate check
+    // connectionRepository.findByRequesterIdAndReceiverId(
+    // sender.getId(),
+    // receiverId
+    // ).ifPresent(c -> {
+
+    // if ("PENDING".equalsIgnoreCase(c.getStatus())) {
+    // throw new RuntimeException("Request already pending");
+    // }
+
+    // if ("ACCEPTED".equalsIgnoreCase(c.getStatus())) {
+    // throw new RuntimeException("Already connected");
+    // }
+    // });
+
+    // Connection request = Connection.builder()
+    // .requester(sender)
+    // .receiver(receiver)
+    // .signal(null)
+    // .message(null)
+    // .status("PENDING")
+    // .build();
+
+    // notificationService.send(
+    // receiver.getId(),
+    // "CONNECTION_REQUEST",
+    // "New Connection Request",
+    // sender.getName() + " sent you a connection request",
+    // null
+    // );
+
+    // return connectionRepository.save(request);
+    // }
+
+    // ACCEPT REQUEST
+
     @Transactional
-    public Connection rejectRequest(User founder, UUID connectionId) {
+    public Connection acceptRequest(User receiver, UUID connectionId) {
+
         Connection connection = connectionRepository.findById(connectionId)
                 .orElseThrow(() -> new RuntimeException("Connection not found"));
 
-        if (!connection.getReceiverId().equals(founder.getId())) {
-            throw new RuntimeException("Forbidden: not your request");
+        // only receiver can accept
+        if (!connection.getReceiver().getId().equals(receiver.getId())) {
+            throw new RuntimeException("Forbidden");
         }
 
-        connection.setStatus("rejected");
+        if (!"PENDING".equalsIgnoreCase(connection.getStatus())) {
+            throw new RuntimeException("Request not pending");
+        }
+
+        connection.setStatus("ACCEPTED");
+        connection.setUpdatedAt(OffsetDateTime.now());
+
+        notificationService.send(
+                connection.getRequester().getId(),
+                "CONNECTION_ACCEPTED",
+                "Connection Accepted!",
+                connection.getReceiver().getName() + " accepted your request",
+                null);
+
         return connectionRepository.save(connection);
     }
 
-    // founder sees pending requests
-    public List<Connection> getPendingRequests(UUID founderId) {
-        return connectionRepository.findByReceiverIdAndStatus(founderId, "pending");
+    // REJECT REQUEST
+
+    @Transactional
+    public Connection rejectRequest(User receiver, UUID connectionId) {
+
+        Connection connection = connectionRepository.findById(connectionId)
+                .orElseThrow(() -> new RuntimeException("Connection not found"));
+
+        if (!connection.getReceiver().getId().equals(receiver.getId())) {
+            throw new RuntimeException("Forbidden");
+        }
+
+        if (!"PENDING".equalsIgnoreCase(connection.getStatus())) {
+            throw new RuntimeException("Request not pending");
+        }
+
+        connection.setStatus("REJECTED");
+        connection.setUpdatedAt(OffsetDateTime.now());
+
+        return connectionRepository.save(connection);
     }
 
-    // talent sees sent requests
-    public List<Connection> getSentRequests(UUID talentId) {
-        return connectionRepository.findByRequesterId(talentId);
+    // GET REQUESTS
+
+    public List<Connection> getPendingRequests(UUID userId) {
+        return connectionRepository.findByReceiverIdAndStatus(userId, "PENDING");
     }
 
-    // get all accepted connections for a user
+    public List<Connection> getSentRequests(UUID userId) {
+        return connectionRepository.findByRequesterId(userId);
+    }
+
     public List<Connection> getAcceptedConnections(UUID userId) {
         return connectionRepository.findAcceptedByUserId(userId);
     }
 
-    // get whatsapp link — only works after acceptance
+    // GET BY ID
+    public Connection getConnectionById(UUID connectionId) {
+        return connectionRepository.findById(connectionId)
+                .orElseThrow(() -> new RuntimeException("Connection not found"));
+    }
+
+    // WHATSAPP LINK
     public String getWhatsappLink(User requester, UUID connectionId) {
+
         Connection connection = connectionRepository.findById(connectionId)
                 .orElseThrow(() -> new RuntimeException("Connection not found"));
 
-        if (!connection.getStatus().equals("accepted")) {
+        if (!"ACCEPTED".equalsIgnoreCase(connection.getStatus())) {
             throw new RuntimeException("Connection not accepted yet");
         }
 
-        // verify requester is part of this connection
-        if (!connection.getRequesterId().equals(requester.getId()) &&
-                !connection.getReceiverId().equals(requester.getId())) {
+        if (!connection.getRequester().getId().equals(requester.getId()) &&
+                !connection.getReceiver().getId().equals(requester.getId())) {
             throw new RuntimeException("Forbidden");
         }
 
-        // get the other person's phone
-        UUID otherUserId = connection.getRequesterId().equals(requester.getId())
-                ? connection.getReceiverId()
-                : connection.getRequesterId();
-
-        User otherUser = userRepository.findById(otherUserId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User otherUser = connection.getRequester().getId().equals(requester.getId())
+                ? connection.getReceiver()
+                : connection.getRequester();
 
         if (otherUser.getPhone() == null || otherUser.getPhone().isBlank()) {
-            throw new RuntimeException("User has no phone number registered");
+            throw new RuntimeException("Phone not found");
         }
 
         String phone = otherUser.getPhone().replaceAll("[^0-9]", "");
         return "https://wa.me/" + phone;
-    }
-
-    public Connection getConnectionById(UUID connectionId) {
-        return connectionRepository.findById(connectionId)
-                .orElseThrow(() -> new RuntimeException("Connection not found"));
     }
 }

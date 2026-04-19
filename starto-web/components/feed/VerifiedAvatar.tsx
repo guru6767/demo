@@ -43,7 +43,7 @@ export default function VerifiedAvatar({
     fallback,
 }: VerifiedAvatarProps) {
     const verified = isVerifiedPlan(plan)
-    const src = avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(username || 'user')}`
+    const src = avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username || 'user')}`
 
     return (
         <span className={`relative inline-flex shrink-0 ${size} ${className}`}>

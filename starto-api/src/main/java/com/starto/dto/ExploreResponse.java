@@ -50,7 +50,7 @@ public class ExploreResponse {
     public static class GovernmentScheme {
         private String name;
         private String body;
-        private List<String> benefits;
+        private String benefits;
         private String eligibility;
         private String applyUrl;
     }

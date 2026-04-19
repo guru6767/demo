@@ -6,33 +6,42 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.hibernate.annotations.Formula;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "signals")
+@Table(name = "signals", indexes = {
+        @Index(name = "idx_signals_user_id", columnList = "user_id"),
+        @Index(name = "idx_signals_status", columnList = "status"),
+        @Index(name = "idx_signals_city", columnList = "city"),
+        @Index(name = "idx_signals_seeking", columnList = "seeking"),
+        @Index(name = "idx_signals_expires_at", columnList = "expires_at")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Signal {
+public class Signal implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
     @JsonIgnore
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @Column(name = "user_id", insertable = false, updatable = false)
     private UUID userId;
 
-
+    @Formula("(SELECT u.username FROM users u WHERE u.id = user_id)")
+    private String username;
 
     @Column(nullable = false, length = 50)
     private String type;
@@ -46,13 +55,13 @@ public class Signal {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
-    @Column(length = 50)
+    @Column(length = 50, nullable = false)
     private String stage;
 
-    @Column(length = 100)
+    @Column(length = 100, nullable = false)
     private String city;
 
-    @Column(length = 100)
+    @Column(length = 100, nullable = false)
     private String state;
 
     private BigDecimal lat;
@@ -108,17 +117,6 @@ public class Signal {
 
     @Column(length = 50)
     private String seeking;
-
-    // Derived fields — sent to frontend but not stored
-    @JsonProperty("username")
-    public String getUsername() {
-        return user != null ? user.getUsername() : null;
-    }
-
-    @JsonProperty("userPlan")
-    public String getUserPlan() {
-        return user != null ? user.getPlan() : null;
-    }
 
     // public UUID getId() {
     // return id;

@@ -9,12 +9,4 @@ public class ExploreRequest {
     private Long budget;
     private String stage;
     private String targetCustomer;
-
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
 }

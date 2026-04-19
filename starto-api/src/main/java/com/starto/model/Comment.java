@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.starto.model.Signal;
+import com.starto.model.User;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -23,7 +25,7 @@ public class Comment {
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "signal_id", nullable = false)
+    @JoinColumn(name = "signal_id", nullable = true)
     private Signal signal;
 
     @Column(name = "signal_id", insertable = false, updatable = false)
@@ -48,7 +50,7 @@ public class Comment {
     private UUID parentId;
 
     // load replies automatically
-    @OneToMany(fetch = FetchType.EAGER)
+    @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "parent_id")
     private List<Comment> replies;
 

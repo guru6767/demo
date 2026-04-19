@@ -2,7 +2,7 @@
 
 import Sidebar from '@/components/feed/Sidebar'
 import MobileBottomNav from '@/components/feed/MobileBottomNav'
-import { MapPin, Globe, Twitter, Linkedin, Github, Signal, Zap, Camera, Upload, Users, BadgeCheck, Star, Edit3, Check, X, Link as LinkIcon, Clock } from 'lucide-react'
+import { MapPin, Globe, Twitter, Linkedin, Github, Signal, Zap, Camera, Upload, Users, BadgeCheck, Star, Edit3, Check, X, Link as LinkIcon, Clock, CreditCard, Receipt, AlertCircle } from 'lucide-react'
 import Image from 'next/image'
 import { useState, useRef, useEffect } from 'react'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -10,6 +10,7 @@ import { useSignalStore, getSignalExpiration } from '@/store/useSignalStore'
 import { useNetworkStore } from '@/store/useNetworkStore'
 import { useRatingStore } from '@/store/useRatingStore'
 import { useResponseStore } from '@/store/useResponseStore'
+import { usePaymentStore } from '@/store/usePaymentStore'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
@@ -58,8 +59,9 @@ export default function UserProfile() {
     const pastSignals = mySignals.filter(s => s.status === 'Solved' || getSignalExpiration(s).isExpired)
     const avgRating = getAverageRating(username)
     const myRatings = getRatingsFor(username)
-    const [activeTab, setActiveTab] = useState<'active' | 'past' | 'responses'>('active')
+    const [activeTab, setActiveTab] = useState<'active' | 'past' | 'responses' | 'payments'>('active')
     const [showAllActiveSignals, setShowAllActiveSignals] = useState(false)
+    const { records: paymentHistory } = usePaymentStore()
 
     const [isEditing, setIsEditing] = useState(false)
     const [isEditingSocial, setIsEditingSocial] = useState(false)
@@ -327,6 +329,14 @@ export default function UserProfile() {
                             >
                                 My Responses ({responses.length})
                             </button>
+                            <button
+                                onClick={() => setActiveTab('payments')}
+                                className={`pb-4 border-b-2 font-bold text-xs uppercase tracking-widest transition-all ${
+                                    activeTab === 'payments' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-primary'
+                                }`}
+                            >
+                                Payment History ({paymentHistory.length})
+                            </button>
                         </div>
 
                         <div className="space-y-6">
@@ -410,6 +420,53 @@ export default function UserProfile() {
                                             <p className="text-xs text-text-muted">Signal by @{r.signalUsername}</p>
                                         </div>
                                     ))
+                                )
+                            )}
+
+                            {/* PAYMENT HISTORY TAB */}
+                            {activeTab === 'payments' && (
+                                paymentHistory.length === 0 ? (
+                                    <div className="flex flex-col items-center py-20 text-center text-text-muted">
+                                        <div className="w-16 h-16 bg-surface-2 rounded-2xl flex items-center justify-center mb-4">
+                                            <Receipt className="w-8 h-8 opacity-20" />
+                                        </div>
+                                        <p className="text-sm font-medium">No payment records found.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {paymentHistory.map((record) => (
+                                            <div key={record.id} className="p-6 bg-white border border-border rounded-3xl group hover:border-black transition-all flex items-center justify-between shadow-sm hover:shadow-md">
+                                                <div className="flex items-center gap-5">
+                                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${
+                                                        record.status === 'Successful' ? 'bg-black text-white' : 'bg-red-50 text-red-500'
+                                                    }`}>
+                                                        {record.status === 'Successful' ? <Check className="w-6 h-6" /> : <X className="w-6 h-6" />}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-3 mb-1">
+                                                            <h4 className="font-display text-xl tracking-tight text-black">{record.planName}</h4>
+                                                            <div className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-[0.2em] border ${
+                                                                record.status === 'Successful' ? 'border-black bg-black text-white' : 'border-red-200 bg-red-50 text-red-600'
+                                                            }`}>
+                                                                {record.status}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-text-muted">
+                                                            <Clock className="w-3 h-3" />
+                                                            <p className="text-[10px] font-mono font-bold uppercase tracking-widest">{record.dateTime}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="flex items-baseline justify-end gap-0.5">
+                                                        <span className="text-xs font-bold text-black">{record.currency}</span>
+                                                        <span className="text-2xl font-mono font-bold text-black tracking-tighter">{record.amount}</span>
+                                                    </div>
+                                                    <p className="text-[9px] text-text-muted font-bold uppercase tracking-[0.2em] mt-1">Transaction Settled</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 )
                             )}
                         </div>

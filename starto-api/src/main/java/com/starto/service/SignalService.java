@@ -5,11 +5,17 @@ import com.starto.model.NearbySpace;
 import com.starto.model.Signal;
 import com.starto.model.SignalView;
 import com.starto.model.User;
+import com.starto.enums.Plan;
 import com.starto.repository.ConnectionRepository;
 import com.starto.repository.NearbySpaceRepository;
 import com.starto.repository.SignalRepository;
 import com.starto.repository.SignalViewRepository;
 import lombok.RequiredArgsConstructor;
+import com.starto.service.WebSocketService;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,36 +37,47 @@ public class SignalService {
     private final SignalViewRepository signalViewRepository;
     private final NearbySpaceRepository nearbySpaceRepository;
     private final ConnectionRepository connectionRepository;
+    private final WebSocketService webSocketService;
+    private final PlanService planService;
 
+    @Caching(evict = {
+            @CacheEvict(value = "signalCache", key = "'activeSignals'"),
+            @CacheEvict(value = "signalCache", allEntries = true)
+    })
     @Transactional
     public Signal createSignal(Signal signal) {
         if (signal.getExpiresAt() == null) {
             signal.setExpiresAt(OffsetDateTime.now().plusDays(7));
         }
+        if (signal.getStatus() == null) {
+            signal.setStatus("open");
+        }
         return signalRepository.save(signal);
     }
 
     public void validateSignalCreation(User user) {
+
         System.out.println("=== validateSignalCreation called ===");
-        System.out.println("Role: " + user.getRole());
-        System.out.println("Plan: " + user.getPlan());
 
-        if (!user.getRole().equalsIgnoreCase("Founder")) {
-            throw new RuntimeException("Only founders can create signals");
-        }
+        // ✅ PLAN CONVERSION
+        Plan plan = user.getPlan();
 
-        boolean isPremium = user.getPlan() != null && user.getPlan().equalsIgnoreCase("premium");
-        System.out.println("isPremium: " + isPremium);
+        // ✅ COUNT USER SIGNALS
+        long signalCount = signalRepository.countByUserId(user.getId());
 
-        if (!isPremium) {
-            long signalCount = signalRepository.countByUserId(user.getId());
-            System.out.println("signalCount: " + signalCount);
-            if (signalCount >= 3) {
-                throw new RuntimeException("Free plan limit reached. Upgrade to premium.");
-            }
+        System.out.println("Plan: " + plan);
+        System.out.println("Signal Count: " + signalCount);
+
+        // ✅ PLAN LIMIT CHECK
+        if (!planService.canPostSignal(plan, (int) signalCount)) {
+            throw new RuntimeException("Signal limit reached. Upgrade your plan.");
         }
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "signalCache", key = "#id"),
+            @CacheEvict(value = "signalCache", key = "'activeSignals'")
+    })
     @Transactional
     public Signal updateSignal(UUID id, Signal updatedSignal) {
         Signal existing = getSignalById(id);
@@ -99,8 +116,9 @@ public class SignalService {
         return signalRepository.save(existing);
     }
 
+    @Cacheable(value = "signalCache", key = "'activeSignals'")
     public List<Signal> getActiveSignals() {
-        return signalRepository.findAllSignals();
+        return signalRepository.findByStatusIn(List.of("open", "Active"));
     }
 
     public List<Signal> getSignalsByCity(String city) {
@@ -111,11 +129,13 @@ public class SignalService {
         return signalRepository.findByUserId(userId);
     }
 
+    @Cacheable(value = "signalCache", key = "#id")
     public Signal getSignalById(UUID id) {
         return signalRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Signal not found"));
     }
 
+    @CacheEvict(value = "signalCache", key = "#signalId")
     @Transactional
     public void trackView(UUID signalId, UUID viewerUserId) {
 
@@ -147,6 +167,10 @@ public class SignalService {
         signalRepository.findById(signalId).ifPresent(signal -> {
             signal.setViewCount(signal.getViewCount() + 1);
             signalRepository.save(signal);
+
+            webSocketService.send(
+                    "/topic/insights/" + signalId,
+                    getInsights(signalId));
         });
 
     }
@@ -189,6 +213,10 @@ public class SignalService {
                 .build();
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "signalCache", key = "#id"),
+            @CacheEvict(value = "signalCache", key = "'activeSignals'")
+    })
     public void deleteSignal(UUID id) {
         signalRepository.deleteById(id);
     }
@@ -209,6 +237,7 @@ public class SignalService {
         return signalRepository.findBySeeking(seeking);
     }
 
+    @Cacheable(value = "signalCache", key = "#lat + '-' + #lng + '-' + #radiusKm")
     public List<Signal> getNearbySignals(double lat, double lng, double radiusKm) {
         if (lat == 0 && lng == 0) {
             return getActiveSignals();
@@ -222,7 +251,7 @@ public class SignalService {
         java.math.BigDecimal lngMin = java.math.BigDecimal.valueOf(lng - lngDiff);
         java.math.BigDecimal lngMax = java.math.BigDecimal.valueOf(lng + lngDiff);
 
-        List<Signal> candidates = signalRepository.findByStatusAndLatBetweenAndLngBetween("open", latMin, latMax,
+        List<Signal> candidates = signalRepository.findByStatusInAndLatBetweenAndLngBetween(List.of("open", "Active"), latMin, latMax,
                 lngMin, lngMax);
 
         return candidates.stream()
@@ -270,4 +299,130 @@ public class SignalService {
         return 6371 * c;
     }
 
+    public List<NearbySpace> getSpacesByUser(UUID userId) {
+        return nearbySpaceRepository.findByUser_Id(userId);
+    }
+
+    @Cacheable(value = "signalCache", key = "#id")
+    public Signal getSignalByIdSafe(UUID id) {
+        return signalRepository.findById(id).orElse(null);
+    }
+
+    @Cacheable(value = "spaceCache", key = "#id")
+    public NearbySpace getNearbySpaceById(UUID id) {
+        return nearbySpaceRepository.findById(id).orElse(null);
+    }
+
+    @Caching(evict = {
+            @CacheEvict(value = "signalCache", allEntries = true),
+            @CacheEvict(value = "spaceCache", allEntries = true)
+    })
+    @Transactional
+    public Object updatePost(UUID id, User user, Signal updatedSignal) {
+
+        // Try Signal
+        Signal existing = signalRepository.findById(id).orElse(null);
+
+        if (existing != null) {
+
+            // ownership check
+            if (!existing.getUserId().equals(user.getId())) {
+                throw new RuntimeException("Forbidden: You don't own this signal");
+            }
+
+            // update fields
+            existing.setType(updatedSignal.getType());
+            existing.setSeeking(updatedSignal.getSeeking());
+            existing.setCategory(updatedSignal.getCategory());
+            existing.setTitle(updatedSignal.getTitle());
+            existing.setDescription(updatedSignal.getDescription());
+            existing.setStage(updatedSignal.getStage());
+            existing.setCity(updatedSignal.getCity());
+            existing.setState(updatedSignal.getState());
+            existing.setLat(updatedSignal.getLat());
+            existing.setLng(updatedSignal.getLng());
+            existing.setTimelineDays(updatedSignal.getTimelineDays());
+            existing.setCompensation(updatedSignal.getCompensation());
+            existing.setVisibility(updatedSignal.getVisibility());
+            existing.setSignalStrength(updatedSignal.getSignalStrength());
+
+            return signalRepository.save(existing);
+        }
+
+        // Try Space
+        NearbySpace space = nearbySpaceRepository.findById(id).orElse(null);
+
+        if (space != null) {
+
+            // ownership check
+            if (!space.getUser().getId().equals(user.getId())) {
+                throw new RuntimeException("Forbidden: You don't own this space");
+            }
+
+            // update fields (mapped)
+            space.setName(updatedSignal.getTitle());
+            space.setDescription(updatedSignal.getDescription());
+            space.setCity(updatedSignal.getCity());
+            space.setState(updatedSignal.getState());
+            space.setLat(updatedSignal.getLat());
+            space.setLng(updatedSignal.getLng());
+
+            return nearbySpaceRepository.save(space);
+        }
+
+        // not found
+        throw new RuntimeException("Post not found");
+    }
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "signalCache", allEntries = true),
+            @CacheEvict(value = "spaceCache", allEntries = true)
+    })
+    public String deletePost(UUID id, User user) {
+
+        // TRY SIGNAL
+        Signal signal = signalRepository.findById(id).orElse(null);
+
+        if (signal != null) {
+
+            // ownership check
+            if (!signal.getUserId().equals(user.getId())) {
+                throw new RuntimeException("Forbidden: You don't own this signal");
+            }
+
+            signalRepository.delete(signal);
+            return "Signal deleted successfully";
+        }
+
+        // TRY SPACE
+        NearbySpace space = nearbySpaceRepository.findById(id).orElse(null);
+
+        if (space != null) {
+
+            // ownership check
+            if (!space.getUser().getId().equals(user.getId())) {
+                throw new RuntimeException("Forbidden: You don't own this space");
+            }
+
+            nearbySpaceRepository.delete(space);
+            return "Space deleted successfully";
+        }
+
+        throw new RuntimeException("Post not found");
+    }
+
+    public List<Signal> searchSignalsByUsername(String username) {
+        return signalRepository.findByUsernameLike(username)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        s -> s.getUserId(),
+                        Collectors.collectingAndThen(
+                                Collectors.toList(),
+                                list -> list.stream().limit(2).collect(Collectors.toList()))))
+                .values()
+                .stream()
+                .flatMap(List::stream)
+                .collect(Collectors.toList());
+    }
 }

@@ -28,12 +28,13 @@ export default function MySignals() {
     }, [isAuthenticated, router])
 
     const fetchMySignals = useCallback(async () => {
-        if (!user?.username) return
+        if (!user?.username || !token) return
         setLoading(true)
-        const { data } = await signalsApi.getAll({ username: user.username })
+        const authToken = token.startsWith('local-') ? token.replace('local-', 'dev_') : token
+        const { data } = await signalsApi.getMine(authToken)
         if (data) setApiSignals(data)
         setLoading(false)
-    }, [user?.username, refreshKey])
+    }, [user?.username, token, refreshKey])
 
     useEffect(() => { fetchMySignals() }, [fetchMySignals])
 
@@ -54,7 +55,7 @@ export default function MySignals() {
             title: s.title,
             category: s.category,
             description: s.description,
-            status: 'Active',
+            status: s.status === 'open' ? 'Active' : 'Closed',
             stats: { responses: s.responseCount ?? 0, offers: s.offerCount ?? 0, views: s.viewCount ?? 0 },
             createdAt: s.createdAt,
             strength: s.signalStrength || '7 Days',
@@ -73,7 +74,7 @@ export default function MySignals() {
         }))
     ].filter(s => {
         const { isExpired } = getSignalExpiration(s)
-        return !isExpired && (activeFilter ? s.category === activeFilter : true)
+        return !isExpired && s.status === 'Active' && (activeFilter ? s.category === activeFilter : true)
     })
 
     const handleDelete = async (id: string, source: 'backend' | 'local') => {
@@ -87,6 +88,7 @@ export default function MySignals() {
             if (!error) {
                 setApiSignals(prev => prev.filter(s => s.id !== id))
             } else {
+                console.error('Delete error:', error)
                 alert('Could not delete from server: ' + error)
             }
         } else {
@@ -164,14 +166,14 @@ export default function MySignals() {
                                         </div>
                                         <div className="flex gap-2">
                                             <button
-                                                onClick={() => setEditingSignal(signal)}
+                                                onClick={(e) => { e.stopPropagation(); setEditingSignal(signal as any); }}
                                                 className="p-1.5 text-text-muted hover:text-primary transition-all"
                                                 title="Edit"
                                             >
                                                 <Edit3 className="w-4 h-4" />
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(signal.id, signal.source)}
+                                                onClick={(e) => { e.stopPropagation(); handleDelete(signal.id, signal.source); }}
                                                 disabled={deletingId === signal.id}
                                                 className="p-1.5 text-text-muted hover:text-red-500 transition-all disabled:opacity-40"
                                                 title="Delete"

@@ -29,9 +29,11 @@ public class Response {
     private String message;
 
     @Column(length = 30)
+    @Builder.Default
     private String type = "respond";
 
     @Column(length = 20)
+    @Builder.Default
     private String status = "pending";
 
     @CreationTimestamp

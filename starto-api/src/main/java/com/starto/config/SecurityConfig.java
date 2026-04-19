@@ -1,5 +1,6 @@
 package com.starto.config;
 
+import com.starto.repository.UserRepository;
 import com.starto.filter.FirebaseAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,7 +10,10 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
+import jakarta.servlet.DispatcherType;
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -17,10 +21,16 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+ 
+    private final UserRepository userRepository;
+ 
+    public SecurityConfig(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     @Bean
     public FirebaseAuthFilter firebaseAuthFilter() {
-        return new FirebaseAuthFilter();
+        return new FirebaseAuthFilter(userRepository);
     }
 
     @Bean
@@ -31,18 +41,51 @@ public class SecurityConfig {
     }
 
     @Bean
+    public ObjectMapper objectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        return mapper;
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()) // Disable CSRF for Postman and APIs
+                .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(request -> {
                     var config = new CorsConfiguration();
-                    config.setAllowedOrigins(List.of("*")); // Allow all origins temporarily
-                    config.setAllowedMethods(List.of("*")); // Allow all HTTP methods
-                    config.setAllowedHeaders(List.of("*")); // Allow all headers
+                    config.setAllowedOrigins(List.of(
+                            "https://starto.in",
+                            "https://app.starto.in",
+                            "http://localhost:3000",
+                            "http://localhost:3001",
+                            "http://localhost:3002",
+                            "http://localhost:8080"));
+                    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+                    config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+                    config.setAllowCredentials(true);
+                    config.setMaxAge(3600L);
                     return config;
                 }))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // ADD THIS BLOCK ↓
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(401);
+                            response.setContentType("application/json");
+                            response.getWriter()
+                                    .write("{\"error\": \"Unauthorized: " + authException.getMessage() + "\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(403);
+                            response.setContentType("application/json");
+                            response.getWriter().write(
+                                    "{\"error\": \"Access denied: " + accessDeniedException.getMessage() + "\"}");
+                        }))
+                // ADD THIS BLOCK ↑
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(
+                                jakarta.servlet.DispatcherType.ASYNC)
+                        .permitAll()
                         .requestMatchers(
                                 "/api/public/**",
                                 "/ws/**",
@@ -53,17 +96,11 @@ public class SecurityConfig {
                                 "/api/users/check-username",
                                 "/api/subscriptions/webhook/razorpay",
                                 "/api/subscriptions/create",
-                                "/api/subscriptions/verify",
-                                "/api/search",
-                                "/api/search/**",
-                                "/api/users/**",
                                 "/actuator/health")
-                        .permitAll() // Public routes
+                        .permitAll()
                         .anyRequest().authenticated())
-                // Add Firebase filter before UsernamePasswordAuthenticationFilter
                 .addFilterBefore(firebaseAuthFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
-
 }

@@ -1,83 +1,189 @@
 package com.starto.service;
 
+import com.starto.enums.Plan;
 import com.starto.model.User;
 import com.starto.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.security.core.Authentication;
 
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.Optional;
+import java.util.List;
+import com.starto.service.PresenceService;
+import com.starto.service.NotificationService;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PresenceService presenceService;
+    private final NotificationService notificationService;
 
     public Optional<User> getUserByFirebaseUid(String firebaseUid) {
-        return userRepository.findByFirebaseUid(firebaseUid);
+        Optional<User> userOpt = userRepository.findByFirebaseUid(firebaseUid);
+
+        System.out.println("USER FOUND: " + userOpt.isPresent());
+        System.out.println("FIREBASE UID SEARCHED: '" + firebaseUid + "'");
+
+        userOpt.ifPresent(user -> {
+
+            if (user.getPlan() != Plan.EXPLORER
+                    && user.getPlanExpiresAt() != null
+                    && user.getPlanExpiresAt().isBefore(OffsetDateTime.now())) {
+
+                String expiredPlanName = user.getPlan().name(); // ← save before changing
+
+                user.setPlan(Plan.EXPLORER);
+                user.setPlanExpiresAt(null);
+                userRepository.save(user);
+
+                // notify with correct plan name
+                notificationService.send(
+                        user.getId(),
+                        "PLAN_EXPIRED",
+                        "Plan Expired",
+                        "Your " + expiredPlanName + " plan has expired. Upgrade to continue.",
+                        Map.of("plan", "EXPLORER"));
+
+                System.out.println("PLAN EXPIRED - downgraded to EXPLORER");
+            }
+
+            System.out.println("USER EMAIL: " + user.getEmail());
+            System.out.println("USER PLAN: " + user.getPlan());
+            user.setIsOnline(true);
+            user.setLastSeen(OffsetDateTime.now());
+            userRepository.save(user);
+        });
+
+        System.out.println("RETURNING: " + userOpt.isPresent());
+        return userOpt;
+    }
+
+    @Cacheable(value = "userCache", key = "#firebaseUid")
+    public User getUserCached(String firebaseUid) {
+        return userRepository.findByFirebaseUid(firebaseUid).orElse(null);
     }
 
     @Transactional
-    public User createOrUpdateUser(String firebaseUid, String email, String name, String baseUsername, String role) {
+    public User createOrUpdateUser(String firebaseUid,
+            String email,
+            String name,
+            String phone,
+            String role,
+            String city,
+            String state,
+            String country) {
 
         return userRepository.findByFirebaseUid(firebaseUid)
                 .map(user -> {
+
                     user.setLastSeen(OffsetDateTime.now());
                     user.setIsOnline(true);
-                    // Update metadata if provided
-                    if (email != null) user.setEmail(email);
-                    if (name != null) user.setName(name);
+
+                    // only fill missing fields (DO NOT overwrite existing data)
+                    if (user.getCity() == null)
+                        user.setCity(city);
+                    if (user.getState() == null)
+                        user.setState(state);
+                    if (user.getCountry() == null)
+                        user.setCountry(country != null ? country : "India");
+                    if (user.getPhone() == null)
+                        user.setPhone(phone);
+
                     return userRepository.save(user);
                 })
                 .orElseGet(() -> {
-                    // Check for dev token - use the baseUsername as is if possible
-                    String finalUsername = baseUsername;
-                    if (firebaseUid.startsWith("dev_") && !finalUsername.toLowerCase().contains(role.toLowerCase())) {
-                        finalUsername = baseUsername + "_" + role.toLowerCase();
-                    } else if (!firebaseUid.startsWith("dev_")) {
-                        finalUsername = baseUsername + "_" + role.toLowerCase();
-                    }
 
-                    // If username collision, append UID suffix for dev users
-                    if (userRepository.existsByUsername(finalUsername)) {
-                        if (firebaseUid.startsWith("dev_")) {
-                             finalUsername = finalUsername + "_" + firebaseUid.substring(Math.max(0, firebaseUid.length() - 4));
-                        } else {
-                             throw new RuntimeException("Username already exists");
-                        }
-                    }
+                    String finalUsername = generateUniqueUsername(name, role);
 
                     User newUser = User.builder()
                             .firebaseUid(firebaseUid)
-                            .email(email != null ? email : firebaseUid + "@dev.starto")
-                            .name(name != null ? name : baseUsername)
-                            .username(finalUsername)
+                            .email(email)
+                            .name(name)
+                            .phone(phone)
                             .role(role)
-                            .plan("free")
-                            .lastSeen(OffsetDateTime.now())
+                            .city(city)
+                            .state(state)
+                            .country(country != null ? country : "India")
+                            .username(finalUsername)
+                            .plan(Plan.EXPLORER)
                             .isOnline(true)
+                            .lastSeen(OffsetDateTime.now())
                             .build();
 
                     return userRepository.save(newUser);
                 });
     }
 
+    @CacheEvict(value = "userCache", key = "#user.firebaseUid")
     @Transactional
     public User updateProfile(User user) {
-        user.setUpdatedAt(OffsetDateTime.now());
-        return userRepository.save(user);
+
+        User existing = userRepository.findById(user.getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // UserService.updateProfile — add missing fields
+        if (user.getUsername() != null)
+            existing.setUsername(user.getUsername());
+        if (user.getSubIndustry() != null)
+            existing.setSubIndustry(user.getSubIndustry());
+        if (user.getWebsiteUrl() != null)
+            existing.setWebsiteUrl(user.getWebsiteUrl());
+        if (user.getLinkedinUrl() != null)
+            existing.setLinkedinUrl(user.getLinkedinUrl());
+        if (user.getTwitterUrl() != null)
+            existing.setTwitterUrl(user.getTwitterUrl());
+        if (user.getGithubUrl() != null)
+            existing.setGithubUrl(user.getGithubUrl());
+        if (user.getLat() != null)
+            existing.setLat(user.getLat());
+        if (user.getLng() != null)
+            existing.setLng(user.getLng());
+        if (user.getIndustry() != null)
+            existing.setIndustry(user.getIndustry());
+
+        existing.setUpdatedAt(OffsetDateTime.now());
+
+        return userRepository.save(existing);
     }
 
-    public boolean isUsernameAvailable(String baseUsername, String role) {
+    public boolean isUsernameAvailable(String baseUsername, String role) { ///////
         String finalUsername = baseUsername + "_" + role.toLowerCase();
         return !userRepository.existsByUsername(finalUsername);
     }
 
-    // called on every authenticated request (heartbeat)
+    @Cacheable(value = "userCache", key = "#username")
+    public Optional<User> getUserByUsername(String username) {
+        return userRepository.findByUsername(username);
+    }
+
+    private String generateUniqueUsername(String name, String role) {
+
+        String base = name.toLowerCase().trim().replaceAll("\\s+", "");
+        String baseUsername = base + "_" + role.toLowerCase();
+
+        String finalUsername = baseUsername;
+        int i = 1;
+
+        while (userRepository.existsByUsername(finalUsername)) {
+            finalUsername = baseUsername + i;
+            i++;
+        }
+
+        return finalUsername;
+    }
+
+    @CacheEvict(value = "userCache", key = "#firebaseUid")
     @Transactional
-    public void markOnline(String firebaseUid) {
+    public void updatePresence(String firebaseUid) {
         userRepository.findByFirebaseUid(firebaseUid).ifPresent(user -> {
             user.setIsOnline(true);
             user.setLastSeen(OffsetDateTime.now());
@@ -85,7 +191,7 @@ public class UserService {
         });
     }
 
-    // called on logout
+    @CacheEvict(value = "userCache", key = "#firebaseUid")
     @Transactional
     public void markOffline(String firebaseUid) {
         userRepository.findByFirebaseUid(firebaseUid).ifPresent(user -> {
@@ -95,8 +201,30 @@ public class UserService {
         });
     }
 
-    public Optional<User> getUserByUsername(String username) {
-        return userRepository.findByUsername(username);
+    public List<User> getNearbyUsers(String role, double lat, double lng, double radiusKm) {
+        double latDiff = radiusKm / 111.0;
+        double lngDiff = radiusKm / (111.0 * Math.cos(Math.toRadians(lat)));
+
+        java.math.BigDecimal latMin = java.math.BigDecimal.valueOf(lat - latDiff);
+        java.math.BigDecimal latMax = java.math.BigDecimal.valueOf(lat + latDiff);
+        java.math.BigDecimal lngMin = java.math.BigDecimal.valueOf(lng - lngDiff);
+        java.math.BigDecimal lngMax = java.math.BigDecimal.valueOf(lng + lngDiff);
+
+        List<User> candidates = userRepository.findNearbyUsers(role, latMin, latMax, lngMin, lngMax);
+
+        return candidates.stream()
+                .filter(u -> u.getLat() != null && u.getLng() != null)
+                .filter(u -> haversineDistanceKm(lat, lng, u.getLat().doubleValue(), u.getLng().doubleValue()) <= radiusKm)
+                .toList();
     }
 
+    private double haversineDistanceKm(double lat1, double lng1, double lat2, double lng2) {
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                        * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return 6371 * c;
+    }
 }

@@ -3,8 +3,11 @@ package com.starto.service;
 import com.starto.model.Comment;
 import com.starto.model.Signal;
 import com.starto.model.User;
+import com.starto.model.NearbySpace;
 import com.starto.repository.CommentRepository;
 import com.starto.repository.SignalRepository;
+import com.starto.repository.NearbySpaceRepository;
+
 import lombok.RequiredArgsConstructor;
 import com.starto.dto.CommentResponseDTO;
 
@@ -18,103 +21,155 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CommentService {
 
-    private final CommentRepository commentRepository;
-    private final SignalRepository signalRepository;
+        private final CommentRepository commentRepository;
+        private final SignalRepository signalRepository;
+        private final NearbySpaceRepository nearbySpaceRepository;
+        private final NotificationService notificationService;
 
-    // add top level comment
-    @Transactional
-    public Comment addComment(User user, UUID signalId, String content) {
-        Signal signal = signalRepository.findById(signalId)
-                .orElseThrow(() -> new RuntimeException("Signal not found"));
+        // add top level comment
+        @Transactional
+        public Comment addComment(User user, UUID postId, String content) {
 
-        Comment comment = Comment.builder()
-                .signal(signal)
-                .user(user)
-                .username(user.getUsername())
-                .content(content)
-                .parentId(null) // top level
-                .build();
+                // Step 1: check Signal
+                Signal signal = signalRepository.findById(postId).orElse(null);
 
-        commentRepository.save(comment);
+                if (signal != null) {
+                        Comment comment = Comment.builder()
+                                        .signal(signal)
+                                        .user(user)
+                                        .username(user.getUsername())
+                                        .content(content)
+                                        .parentId(null)
+                                        .build();
 
-        // increment responseCount
-        signal.setResponseCount(signal.getResponseCount() + 1);
-        signalRepository.save(signal);
+                        commentRepository.save(comment);
 
-        return comment;
-    }
+                        // increment only for signal
+                        signal.setResponseCount(signal.getResponseCount() + 1);
+                        signalRepository.save(signal);
 
-    // reply to a comment
-    @Transactional
-    public Comment addReply(User user, UUID signalId, UUID parentId, String content) {
-        Signal signal = signalRepository.findById(signalId)
-                .orElseThrow(() -> new RuntimeException("Signal not found"));
+                        notificationService.send(
+                                        signal.getUser().getId(),
+                                        "NEW_COMMENT",
+                                        "New Comment",
+                                        user.getName() + " commented on your signal",
+                                        null);
 
-        // check parent comment exists
-        Comment parentComment = commentRepository.findById(parentId)
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                        return comment;
+                }
 
-        // block replying to a reply (1 level only)
-        if (parentComment.getParentId() != null) {
-            throw new RuntimeException("Cannot reply to a reply");
+                // Step 2: check NearbySpace
+                NearbySpace space = nearbySpaceRepository.findById(postId)
+                                .orElseThrow(() -> new RuntimeException("Post not found"));
+
+                // TEMP: attach NULL signal (since your model requires it)
+                Comment comment = Comment.builder()
+                                .signal(null) // ⚠️ IMPORTANT
+                                .user(user)
+                                .username(user.getUsername())
+                                .content(content)
+                                .parentId(null)
+                                .build();
+
+                return commentRepository.save(comment);
         }
 
-        Comment reply = Comment.builder()
-                .signal(signal)
-                .user(user)
-                .username(user.getUsername())
-                .content(content)
-                .parentId(parentId) // ← links to parent comment
-                .build();
+        // reply to a comment
+        @Transactional
+        public Comment addReply(User user, UUID postId, UUID parentId, String content) {
 
-        commentRepository.save(reply);
+                // 🔍 Step 1: check Signal
+                Signal signal = signalRepository.findById(postId).orElse(null);
 
-        // also increment responseCount for replies
-        signal.setResponseCount(signal.getResponseCount() + 1);
-        signalRepository.save(signal);
+                Comment parentComment = commentRepository.findById(parentId)
+                                .orElseThrow(() -> new RuntimeException("Comment not found"));
 
-        return reply;
-    }
+                if (signal != null) {
+                        Comment reply = Comment.builder()
+                                        .signal(signal)
+                                        .user(user)
+                                        .username(user.getUsername())
+                                        .content(content)
+                                        .parentId(parentId)
+                                        .build();
 
-    // delete comment or reply
-    @Transactional
-    public void deleteComment(User user, UUID commentId) {
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                        commentRepository.save(reply);
 
-        if (!comment.getUserId().equals(user.getId())) {
-            throw new RuntimeException("Forbidden: not your comment");
+                        signal.setResponseCount(signal.getResponseCount() + 1);
+                        signalRepository.save(signal);
+
+                        return reply;
+                }
+
+                // Step 2: check NearbySpace
+                nearbySpaceRepository.findById(postId)
+                                .orElseThrow(() -> new RuntimeException("Post not found"));
+
+                Comment reply = Comment.builder()
+                                .signal(null) // ⚠️ TEMP FIX
+                                .user(user)
+                                .username(user.getUsername())
+                                .content(content)
+                                .parentId(parentId)
+                                .build();
+
+                return commentRepository.save(reply);
         }
 
-        // decrement responseCount
-        Signal signal = comment.getSignal();
-        signal.setResponseCount(Math.max(0, signal.getResponseCount() - 1));
-        signalRepository.save(signal);
+        // delete comment
+        @Transactional
+        public void deleteComment(User user, UUID commentId) {
+                Comment comment = commentRepository.findById(commentId)
+                                .orElseThrow(() -> new RuntimeException("Comment not found"));
 
-        commentRepository.delete(comment);
-    }
+                if (!comment.getUserId().equals(user.getId())) {
+                        throw new RuntimeException("Forbidden: not your comment");
+                }
 
-    // convert Comment to DTO
-    private CommentResponseDTO toDTO(Comment comment) {
-        return CommentResponseDTO.builder()
-                .id(comment.getId())
-                .signalId(comment.getSignalId())
-                .userId(comment.getUserId())
-                .username(comment.getUsername())
-                .content(comment.getContent())
-                .parentId(comment.getParentId())
-                .createdAt(comment.getCreatedAt())
-                .replies(comment.getReplies() != null
-                        ? comment.getReplies().stream().map(this::toDTO).toList()
-                        : List.of())
-                .build();
-    }
+                Signal signal = comment.getSignal();
 
-    public List<CommentResponseDTO> getComments(UUID signalId) {
-        return commentRepository
-                .findBySignalIdAndParentIdIsNullOrderByCreatedAtDesc(signalId)
-                .stream()
-                .map(this::toDTO)
-                .toList();
-    }
+                int totalDeleted = countAllReplies(comment) + 1;
+
+                commentRepository.delete(comment);
+
+                // only update if signal exists
+                if (signal != null) {
+                        signal.setResponseCount(Math.max(0, signal.getResponseCount() - totalDeleted));
+                        signalRepository.save(signal);
+                }
+        }
+
+        // DTO conversion
+        private CommentResponseDTO toDTO(Comment comment) {
+                return CommentResponseDTO.builder()
+                                .id(comment.getId())
+                                .signalId(comment.getSignalId()) // ⚠️ will be null for space
+                                .userId(comment.getUserId())
+                                .username(comment.getUsername())
+                                .content(comment.getContent())
+                                .parentId(comment.getParentId())
+                                .createdAt(comment.getCreatedAt())
+                                .replies(comment.getReplies() != null
+                                                ? comment.getReplies().stream().map(this::toDTO).toList()
+                                                : List.of())
+                                .build();
+        }
+
+        public List<CommentResponseDTO> getComments(UUID signalId) {
+                return commentRepository
+                                .findBySignalIdAndParentIdIsNullOrderByCreatedAtDesc(signalId)
+                                .stream()
+                                .map(this::toDTO)
+                                .toList();
+        }
+
+        private int countAllReplies(Comment comment) {
+                if (comment.getReplies() == null || comment.getReplies().isEmpty())
+                        return 0;
+                int count = comment.getReplies().size();
+                for (Comment reply : comment.getReplies()) {
+                        count += countAllReplies(reply);
+                }
+                return count;
+        }
 }

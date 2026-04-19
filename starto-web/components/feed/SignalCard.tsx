@@ -13,6 +13,7 @@ import RaiseSignalModal from './RaiseSignalModal'
 import InsightsModal from './InsightsModal'
 import HelpModal from './HelpModal'
 import VerifiedAvatar from './VerifiedAvatar'
+import { signalsApi } from '@/lib/apiClient'
 
 // ── @Mention hook — searches all known usernames in the store ────────────────
 function useMentionSuggestions(text: string) {
@@ -104,7 +105,7 @@ function CommentRow({ comment, signalId, currentUser, depth = 0 }: {
     return (
         <div className={`flex gap-2 ${textSize}`}>
             <div className={`${avatarSize} rounded-full bg-surface-2 overflow-hidden shrink-0 mt-0.5 relative`}>
-                <Image src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(comment.username)}`} alt={comment.username} fill className="object-cover" />
+                <Image src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(comment.username)}`} alt={comment.username} fill className="object-cover" />
             </div>
             <div className="flex-1 min-w-0">
                 <p>
@@ -177,9 +178,10 @@ interface SignalCardProps {
     hideViews?: boolean
     userPlan?: string
     createdAt?: number | string
+    onRefresh?: () => void
 }
 
-export default function SignalCard({ id, title, username, timeAgo, category, description, strength, stats, hideViews = false, userPlan = 'free', createdAt }: SignalCardProps) {
+export default function SignalCard({ id, title, username, timeAgo, category, description, strength, stats, hideViews = false, userPlan = 'free', createdAt, onRefresh }: SignalCardProps) {
     const { user, token } = useAuthStore()
     const currentUser = user?.username
     const { deleteSignal, signals } = useSignalStore()
@@ -193,6 +195,7 @@ export default function SignalCard({ id, title, username, timeAgo, category, des
     const [commentText, setCommentText] = useState('')
     const [addedToNetwork, setAddedToNetwork] = useState(false)
     const [justResponded, setJustResponded] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
     const safeConnections = Array.isArray(connections) ? connections : []
     const safeSent = Array.isArray(sentRequests) ? sentRequests : []
@@ -212,7 +215,22 @@ export default function SignalCard({ id, title, username, timeAgo, category, des
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [])
     const isOwner = currentUser === username
-    const currentSignal = signals.find(s => s.id === id)
+    const storeSignal = signals.find(s => s.id === id)
+    
+    // Fallback object so modals can open even for backend-only signals not in local store
+    const currentSignal: Signal = storeSignal || {
+        id,
+        title,
+        username,
+        timeAgo,
+        category,
+        description,
+        strength,
+        status: 'Active',
+        stats: stats || { responses: 0, offers: 0, views: 0 },
+        userPlan,
+        createdAt: typeof createdAt === 'string' ? new Date(createdAt).getTime() : createdAt
+    } as Signal
 
     // Days left calculation using helper
     const { isExpired, daysLeft, hoursLeft, totalDuration, progressPercent } = getSignalExpiration(currentSignal || { strength, createdAt } as any);
@@ -260,7 +278,10 @@ export default function SignalCard({ id, title, username, timeAgo, category, des
                     </span>
                     {isOwner ? (
                         <div className="relative" ref={dropdownRef}>
-                            <button onClick={() => setShowDropdown(!showDropdown)} className={`text-text-muted hover:text-primary p-1 rounded-md transition-all ${showDropdown ? 'bg-surface-2 text-primary' : 'hover:bg-surface-2'}`}>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); setShowDropdown(!showDropdown); }} 
+                                className={`text-text-muted hover:text-primary p-1 rounded-md transition-all ${showDropdown ? 'bg-surface-2 text-primary' : 'hover:bg-surface-2'}`}
+                            >
                                 <MoreHorizontal className="w-5 h-5" />
                             </button>
                             <AnimatePresence>
@@ -273,22 +294,39 @@ export default function SignalCard({ id, title, username, timeAgo, category, des
                                         className="absolute right-0 top-full mt-1 w-40 bg-white border border-border rounded-lg shadow-lg z-20 py-1 flex flex-col overflow-hidden"
                                     >
                                         <button 
-                                            onClick={() => { setIsInsightsModalOpen(true); setShowDropdown(false); }}
+                                            onClick={(e) => { e.stopPropagation(); setIsInsightsModalOpen(true); setShowDropdown(false); }}
                                             className="px-4 py-2.5 text-sm text-left hover:bg-surface-2 transition-colors w-full flex items-center gap-2 text-text-secondary hover:text-black font-medium"
                                         >
                                             <BarChart2 className="w-4 h-4" /> Insights
                                         </button>
                                         <button 
-                                            onClick={() => { setIsEditModalOpen(true); setShowDropdown(false); }}
+                                            onClick={(e) => { e.stopPropagation(); setIsEditModalOpen(true); setShowDropdown(false); }}
                                             className="px-4 py-2.5 text-sm text-left hover:bg-surface-2 transition-colors w-full flex items-center gap-2 text-text-secondary hover:text-black font-medium"
                                         >
                                             <Edit3 className="w-4 h-4" /> Modify Signal
                                         </button>
                                         <button 
-                                            onClick={() => { deleteSignal(id); setShowDropdown(false); }}
-                                            className="px-4 py-2.5 text-sm text-left hover:bg-red-50 transition-colors w-full flex items-center gap-2 text-accent-red font-medium"
+                                            disabled={isDeleting}
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                if (!confirm('Permanently delete this signal?')) return;
+                                                
+                                                setIsDeleting(true);
+                                                const authToken = token || (user?.username ? `dev_${user.username}` : '');
+                                                const { error } = await signalsApi.delete(id, authToken);
+                                                
+                                                if (!error) {
+                                                    deleteSignal(id); // remove from local store too
+                                                    if (onRefresh) onRefresh();
+                                                } else {
+                                                    alert('Failed to delete: ' + error);
+                                                }
+                                                setIsDeleting(false);
+                                                setShowDropdown(false);
+                                            }}
+                                            className="px-4 py-2.5 text-sm text-left hover:bg-red-50 transition-colors w-full flex items-center gap-2 text-accent-red font-medium disabled:opacity-50"
                                         >
-                                            <Trash2 className="w-4 h-4" /> Delete Signal
+                                            <Trash2 className="w-4 h-4" /> {isDeleting ? 'Deleting...' : 'Delete Signal'}
                                         </button>
                                     </motion.div>
                                 )}
@@ -353,7 +391,7 @@ export default function SignalCard({ id, title, username, timeAgo, category, des
                 <div className="mb-4 flex items-center gap-2">
                     <div className="flex -space-x-2">
                         <div className="w-5 h-5 rounded-full border border-white bg-surface-2 relative overflow-hidden">
-                            <Image src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(respondentToShow)}`} alt="proof" fill className="object-cover" unoptimized />
+                            <Image src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(respondentToShow)}`} alt="proof" fill className="object-cover" unoptimized />
                         </div>
                     </div>
                     <p className="text-[11px] text-text-secondary">
@@ -446,7 +484,7 @@ export default function SignalCard({ id, title, username, timeAgo, category, des
                         {/* Main Comment Input */}
                         <div className="mt-4 flex gap-2 items-center border-t border-border pt-3">
                             <div className="w-8 h-8 rounded-full border border-border bg-surface-2 relative overflow-hidden shrink-0">
-                                <Image src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(currentUser || 'user')}`} alt="me" fill className="object-cover" unoptimized />
+                                <Image src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser || 'user')}`} alt="me" fill className="object-cover" unoptimized />
                             </div>
                             <input
                                 type="text"

@@ -1,0 +1,200 @@
+﻿2026-04-13T23:10:32.076+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-1] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+2026-04-13T23:11:07.290+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:11:51.614+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-1] org.hibernate.SQL                        : select u1_0.id,u1_0.avatar_url,u1_0.bio,u1_0.city,u1_0.country,u1_0.created_at,u1_0.email,u1_0.fcm_token,u1_0.firebase_uid,u1_0.github_url,u1_0.industry,u1_0.is_active,u1_0.is_online,u1_0.is_verified,u1_0.last_seen,u1_0.lat,u1_0.linkedin_url,u1_0.lng,u1_0.name,u1_0.network_size,u1_0.network_tier,u1_0.phone,u1_0.plan,u1_0.plan_expires_at,u1_0.role,u1_0.signal_count,u1_0.state,u1_0.sub_industry,u1_0.twitter_url,u1_0.updated_at,u1_0.username,u1_0.website_url from users u1_0 where u1_0.username=?
+Hibernate: select u1_0.id,u1_0.avatar_url,u1_0.bio,u1_0.city,u1_0.country,u1_0.created_at,u1_0.email,u1_0.fcm_token,u1_0.firebase_uid,u1_0.github_url,u1_0.industry,u1_0.is_active,u1_0.is_online,u1_0.is_verified,u1_0.last_seen,u1_0.lat,u1_0.linkedin_url,u1_0.lng,u1_0.name,u1_0.network_size,u1_0.network_tier,u1_0.phone,u1_0.plan,u1_0.plan_expires_at,u1_0.role,u1_0.signal_count,u1_0.state,u1_0.sub_industry,u1_0.twitter_url,u1_0.updated_at,u1_0.username,u1_0.website_url from users u1_0 where u1_0.username=?
+2026-04-13T23:11:51.625+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-2] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:11:51.633+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-5] org.hibernate.SQL                        : select u1_0.id,u1_0.avatar_url,u1_0.bio,u1_0.city,u1_0.country,u1_0.created_at,u1_0.email,u1_0.fcm_token,u1_0.firebase_uid,u1_0.github_url,u1_0.industry,u1_0.is_active,u1_0.is_online,u1_0.is_verified,u1_0.last_seen,u1_0.lat,u1_0.linkedin_url,u1_0.lng,u1_0.name,u1_0.network_size,u1_0.network_tier,u1_0.phone,u1_0.plan,u1_0.plan_expires_at,u1_0.role,u1_0.signal_count,u1_0.state,u1_0.sub_industry,u1_0.twitter_url,u1_0.updated_at,u1_0.username,u1_0.website_url from users u1_0 where u1_0.username=?
+Hibernate: select u1_0.id,u1_0.avatar_url,u1_0.bio,u1_0.city,u1_0.country,u1_0.created_at,u1_0.email,u1_0.fcm_token,u1_0.firebase_uid,u1_0.github_url,u1_0.industry,u1_0.is_active,u1_0.is_online,u1_0.is_verified,u1_0.last_seen,u1_0.lat,u1_0.linkedin_url,u1_0.lng,u1_0.name,u1_0.network_size,u1_0.network_tier,u1_0.phone,u1_0.plan,u1_0.plan_expires_at,u1_0.role,u1_0.signal_count,u1_0.state,u1_0.sub_industry,u1_0.twitter_url,u1_0.updated_at,u1_0.username,u1_0.website_url from users u1_0 where u1_0.username=?
+2026-04-13T23:11:51.642+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-9] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:11:53.891+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-6] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:11:53.923+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-7] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:11:53.935+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-4] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:11:53.946+05:30 DEBUG 10304 --- [starto-api] [io-8081-exec-10] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:11:58.185+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-1] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:11:58.197+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-2] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+2026-04-13T23:12:07.299+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+2026-04-13T23:13:07.287+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+2026-04-13T23:14:07.301+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+2026-04-13T23:15:07.295+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:15:54.081+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-3] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:15:54.093+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-8] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:15:55.861+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-1] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:15:55.871+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-2] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:15:55.878+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-7] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:15:55.888+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-9] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/connections/sent
+AUTH HEADER: Bearer local-hugar_guru_startu
+=== FIREBASE FILTER ===
+URI: /api/connections/pending
+AUTH HEADER: Bearer local-hugar_guru_startu
+=== FIREBASE FILTER ===
+URI: /api/offers/inbox
+AUTH HEADER: Bearer local-hugar_guru_startu
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+=== FIREBASE FILTER ===
+URI: /api/connections/accepted
+AUTH HEADER: Bearer local-hugar_guru_startu
+2026-04-13T23:16:00.068+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-8] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:16:00.074+05:30 DEBUG 10304 --- [starto-api] [io-8081-exec-10] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+=== FIREBASE FILTER ===
+URI: /api/connections/pending
+AUTH HEADER: Bearer local-hugar_guru_startu
+=== FIREBASE FILTER ===
+URI: /api/connections/sent
+AUTH HEADER: Bearer local-hugar_guru_startu
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+=== FIREBASE FILTER ===
+URI: /api/offers/inbox
+AUTH HEADER: Bearer local-hugar_guru_startu
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+=== FIREBASE FILTER ===
+URI: /api/connections/accepted
+AUTH HEADER: Bearer local-hugar_guru_startu
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+=== FIREBASE FILTER ===
+URI: /api/connections/guru_hugar_founder/accept
+AUTH HEADER: Bearer local-hugar_guru_startu
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+2026-04-13T23:16:07.291+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+2026-04-13T23:17:07.297+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+2026-04-13T23:18:07.293+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+2026-04-13T23:19:07.286+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+2026-04-13T23:20:07.292+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+2026-04-13T23:21:07.293+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+2026-04-13T23:22:07.303+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+2026-04-13T23:23:07.305+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+=== FIREBASE FILTER ===
+URI: /api/connections/pending
+AUTH HEADER: Bearer local-hugar_guru_startu
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+=== FIREBASE FILTER ===
+URI: /api/connections/sent
+AUTH HEADER: Bearer local-hugar_guru_startu
+=== FIREBASE FILTER ===
+URI: /api/offers/inbox
+AUTH HEADER: Bearer local-hugar_guru_startu
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+=== FIREBASE FILTER ===
+URI: /api/connections/accepted
+AUTH HEADER: Bearer local-hugar_guru_startu
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+2026-04-13T23:24:07.294+05:30 DEBUG 10304 --- [starto-api] [MessageBroker-7] org.hibernate.SQL                        : update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+Hibernate: update users u1_0 set is_online=false where u1_0.is_online=true and u1_0.last_seen<?
+=== FIREBASE FILTER ===
+URI: /api/connections/guru_hugar_founder/accept
+AUTH HEADER: Bearer local-hugar_guru_startu
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:24:12.652+05:30 DEBUG 10304 --- [starto-api] [nio-8081-exec-8] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/signals
+AUTH HEADER: NULL
+2026-04-13T23:24:12.657+05:30 DEBUG 10304 --- [starto-api] [io-8081-exec-10] org.hibernate.SQL                        : select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+Hibernate: select s1_0.id,s1_0.boost_expires_at,s1_0.category,s1_0.city,s1_0.compensation,s1_0.created_at,s1_0.description,s1_0.expires_at,s1_0.is_boosted,s1_0.lat,s1_0.lng,s1_0.offer_count,s1_0.response_count,s1_0.seeking,s1_0.signal_strength,s1_0.stage,s1_0.state,s1_0.status,s1_0.timeline_days,s1_0.title,s1_0.type,s1_0.updated_at,s1_0.user_id,s1_0.view_count,s1_0.visibility from signals s1_0 where s1_0.status=?
+=== FIREBASE FILTER ===
+URI: /api/connections/pending
+AUTH HEADER: Bearer local-hugar_guru_startu
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+=== FIREBASE FILTER ===
+URI: /api/connections/accepted
+AUTH HEADER: Bearer local-hugar_guru_startu
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+=== FIREBASE FILTER ===
+URI: /api/connections/sent
+AUTH HEADER: Bearer local-hugar_guru_startu
+=== FIREBASE FILTER ===
+URI: /api/offers/inbox
+AUTH HEADER: Bearer local-hugar_guru_startu
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
+=== FIREBASE FILTER ===
+URI: /api/connections/guru_hugar_founder/accept
+AUTH HEADER: Bearer local-hugar_guru_startu
+TOKEN ERROR: Failed to parse Firebase ID token. Make sure you passed a string that represents a complete and valid JWT. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.

@@ -31,4 +31,6 @@ public interface OfferRepository extends JpaRepository<Offer, UUID> {
 
     @Query("SELECT o FROM Offer o WHERE o.receiver.id = :receiverId ORDER BY o.createdAt DESC")
     List<Offer> findAllByReceiverId(@Param("receiverId") UUID receiverId);
+
+    int countByRequesterId(UUID requesterId);
 }

@@ -62,3 +62,50 @@ h1, h2, h3, h4, .font-display {
 .auth-input-icon {
   @apply absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-white transition-colors;
 }
+
+/* Print Styles for AI Market Report */
+@media print {
+  /* Hide UI elements that shouldn't be in the PDF */
+  nav, 
+  aside:not(.report-sidebar), 
+  .no-print, 
+  header div:first-child, /* Powered by badge */
+  button {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  .bg-surface-2, .bg-white {
+    background: white !important;
+    border: 1px solid #eee !important;
+  }
+
+  .text-white {
+    color: black !important;
+  }
+
+  .bg-primary {
+    background: #000 !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .rounded-2xl {
+    border-radius: 8px !important;
+  }
+
+  /* Force display of hidden elements if necessary */
+  .print-only {
+    display: block !important;
+  }
+}

@@ -10,7 +10,11 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "offers")
+@Table(name = "offers", indexes = {
+        @Index(name = "idx_offers_receiver_id", columnList = "receiver_id"),
+        @Index(name = "idx_offers_requester_id", columnList = "requester_id"),
+        @Index(name = "idx_offers_signal_id", columnList = "signal_id")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

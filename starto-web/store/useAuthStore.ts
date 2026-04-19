@@ -23,6 +23,8 @@ export interface UserProfile {
     isVerified?: boolean;
     subscription?: string;
     plan: string;
+    lat: number | null;
+    lng: number | null;
     signalCount: number;
     networkSize: number;
 }

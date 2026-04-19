@@ -1,16 +1,22 @@
 package com.starto.controller;
 
 import com.starto.model.User;
+import com.starto.repository.UserRepository;
 import com.starto.service.UserService;
 import lombok.RequiredArgsConstructor;
+
+import com.starto.service.EmailService;
 import com.starto.service.PasswordResetService;
 
 import java.util.Map;
+import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
+import com.starto.service.EmailService;
+import com.starto.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -19,6 +25,8 @@ public class AuthController {
 
     private final UserService userService;
     private final PasswordResetService passwordResetService;
+    private final EmailService emailService;
+    private final UserRepository userRepository;
 
     // saving the user details in DB
     @PostMapping("/register")
@@ -27,17 +35,33 @@ public class AuthController {
             @RequestBody User userDetails) {
 
         if (authentication == null || authentication.getPrincipal() == null) {
-            return ResponseEntity.status(401).body("Unauthorized: Missing or invalid Firebase token");
+            return ResponseEntity.status(401).body("Unauthorized");
         }
 
         String firebaseUid = authentication.getPrincipal().toString();
 
+        String name = userDetails.getName();
+        String email = userDetails.getEmail();
+        String phone = userDetails.getPhone();
+        String role = userDetails.getRole();
+
+        String city = userDetails.getCity();
+        String state = userDetails.getState();
+        String country = userDetails.getCountry();
+
         User user = userService.createOrUpdateUser(
                 firebaseUid,
-                userDetails.getEmail(),
-                userDetails.getName(),
-                userDetails.getUsername(),
-                userDetails.getRole());
+                email,
+                name,
+                phone,
+                role,
+                city,
+                state,
+                country);
+
+        // Send verification email
+        emailService.sendVerificationEmail(user);
+
         return ResponseEntity.ok(user);
     }
 
@@ -80,6 +104,25 @@ public class AuthController {
         String firebaseUid = authentication.getPrincipal().toString();
         passwordResetService.updatePassword(firebaseUid, newPassword);
         return ResponseEntity.ok(Map.of("message", "Password updated successfully"));
+    }
+
+    @GetMapping("/avatars")
+    public ResponseEntity<?> getAvatarOptions() {
+        return ResponseEntity.ok(Map.of("avatars", List.of(
+                "/avatars/avatar1.png",
+                "/avatars/avatar2.png",
+                "/avatars/avatar3.png",
+                "/avatars/avatar4.png")));
+    }
+
+    @GetMapping("/test-email")
+    public ResponseEntity<?> testEmail() {
+        emailService.sendPaymentSuccessEmail(
+                userRepository.findAll().get(0),
+                "TEST",
+                100,
+                "ORDER_TEST");
+        return ResponseEntity.ok("Email sent");
     }
 
 }

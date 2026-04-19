@@ -52,10 +52,27 @@ export default function SignalDetailPage() {
         if (!id) return
         
         setLoading(true)
+        
+        // Simple UUID regex check to avoid 404 errors for local-only signals during prefetching
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id as string);
+        
+        if (!isUuid) {
+            // Local-only signal (temporary ID) — fetch from store only
+            const local = localSignals.find(s => s.id === id);
+            if (local) {
+                setSignal(local as any);
+                setLoading(false);
+            } else {
+                setError('Local signal not found');
+                setLoading(false);
+            }
+            return;
+        }
+
         signalsApi.getById(id as string).then(({ data, error }) => {
             if (error || !data) {
                 console.error('API Signal error:', error, 'ID:', id)
-                // Fallback to local storage if backend fails/signal is new
+                // Fallback to local storage if backend fails
                 const local = localSignals.find(s => s.id === id)
                 if (local) {
                     setSignal(local as any)
@@ -227,7 +244,7 @@ export default function SignalDetailPage() {
                                 {/* Main Reply Box */}
                                 <div className="flex gap-4 bg-surface-2 p-4 rounded-2xl border border-border/30 focus-within:border-primary/30 transition-all">
                                     <div className="w-10 h-10 rounded-full bg-white border border-border shrink-0 overflow-hidden relative">
-                                        <Image src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(currentUser?.username || 'anon')}`} fill alt="me" unoptimized />
+                                        <Image src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser?.username || 'anon')}`} fill alt="me" unoptimized />
                                     </div>
                                     <div className="flex-1 space-y-3">
                                         <textarea 
@@ -265,7 +282,7 @@ export default function SignalDetailPage() {
                                         (signal as any).comments.map((comment: any) => (
                                             <div key={comment.id} className="flex gap-4 group">
                                                 <div className="w-8 h-8 rounded-full bg-surface-2 border border-border shrink-0 overflow-hidden relative">
-                                                    <Image src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(comment.username)}`} fill alt={comment.username} unoptimized />
+                                                    <Image src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(comment.username)}`} fill alt={comment.username} unoptimized />
                                                 </div>
                                                 <div className="flex-1 space-y-1">
                                                     <div className="flex items-center gap-2">

@@ -12,38 +12,39 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class Subscription {
+
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, length = 20)
-    private String plan;
+    @Column(nullable = false)
+    private String plan; // matches Plan enum name
 
-    @Column(name = "razorpay_order_id")
+    @Column(nullable = false)
+    private Integer amountPaid; // in paise (₹149 = 14900)
+
+    @Column
     private String razorpayOrderId;
 
-    @Column(name = "razorpay_sub_id")
-    private String razorpaySubId;
+    @Column
+    private String razorpayPaymentId;
 
-    @Column(name = "payment_id")
-    private String paymentId;
+    @Column(nullable = false)
+    private String status; // PENDING, ACTIVE, EXPIRED, FAILED
 
-    @Column(length = 20)
-    private String status = "active";
-
-    private Integer amount;
-    private String currency = "INR";
-
-    @Column(name = "started_at")
-    private OffsetDateTime startedAt;
+    @Column(name = "starts_at")
+    private OffsetDateTime startsAt;
 
     @Column(name = "expires_at")
     private OffsetDateTime expiresAt;
 
-    @Column(name = "cancelled_at")
-    private OffsetDateTime cancelledAt;
+    @Column(name = "created_at")
+    private OffsetDateTime createdAt;
+
+    @Column
+    private String razorpaySubscriptionId;
 }

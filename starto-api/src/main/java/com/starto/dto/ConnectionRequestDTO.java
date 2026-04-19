@@ -5,6 +5,7 @@ import java.util.UUID;
 
 @Data
 public class ConnectionRequestDTO {
+    private UUID receiverId;
     private UUID signalId;
     private String message;
 }

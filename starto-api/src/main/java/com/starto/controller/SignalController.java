@@ -6,6 +6,9 @@ import com.starto.model.User;
 import com.starto.service.SignalService;
 import com.starto.service.UserService;
 import lombok.RequiredArgsConstructor;
+import com.starto.service.WebSocketService;
+import com.starto.dto.SignalRequestDTO;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -13,7 +16,6 @@ import org.springframework.security.core.Authentication;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -23,38 +25,21 @@ public class SignalController {
 
     private final SignalService signalService;
     private final UserService userService;
+    private final WebSocketService webSocketService;
 
-    // creatint the signal
+    // create the signal
     @PostMapping
     public ResponseEntity<?> createSignal(
             Authentication authentication,
-            @RequestBody Signal signal) {
+            @RequestBody SignalRequestDTO dto) {
 
         if (authentication == null || authentication.getPrincipal() == null)
             return ResponseEntity.status(401).build();
 
         String firebaseUid = authentication.getPrincipal().toString();
 
-        // Normalize: frontend may send dev_ or local- prefixed tokens
-        if (firebaseUid.startsWith("local-")) {
-            firebaseUid = "dev_" + firebaseUid.substring(6);
-        }
-
-        Optional<User> userOpt = userService.getUserByFirebaseUid(firebaseUid);
-        
-        // If user doesn't exist but it's a dev UID, auto-create
-        if (userOpt.isEmpty() && firebaseUid.startsWith("dev_")) {
-            String devUsername = firebaseUid.substring(4);
-            userOpt = Optional.of(userService.createOrUpdateUser(
-                firebaseUid, 
-                devUsername + "@example.com", 
-                devUsername, 
-                devUsername, 
-                "Founder"
-            ));
-        }
-
-        return userOpt.map(user -> {
+        return userService.getUserByFirebaseUid(firebaseUid)
+                .map(user -> {
                     try {
                         signalService.validateSignalCreation(user);
                     } catch (RuntimeException ex) {
@@ -62,8 +47,35 @@ public class SignalController {
                                 "error", ex.getMessage(),
                                 "upgradeUrl", "/api/subscriptions/upgrade"));
                     }
+
+                    // map DTO to Signal
+                    Signal signal = Signal.builder()
+                            .type(dto.getType())
+                            .title(dto.getTitle())
+                            .description(dto.getDescription())
+                            .stage(dto.getStage())
+                            .city(dto.getCity())
+                            .state(dto.getState())
+                            .category(dto.getCategory())
+                            .seeking(dto.getSeeking())
+                            .compensation(dto.getCompensation())
+                            .visibility(dto.getVisibility() != null ? dto.getVisibility() : "global")
+                            .signalStrength(dto.getSignalStrength() != null ? dto.getSignalStrength() : "normal")
+                            .timelineDays(dto.getTimelineDays())
+                            .lat(dto.getLat())
+                            .lng(dto.getLng())
+                            .user(user)
+                            .build();
+
                     signal.setUser(user);
-                    return ResponseEntity.ok(signalService.createSignal(signal));
+
+                    // SAVE
+                    Signal saved = signalService.createSignal(signal);
+
+                    // WEBSOCKET
+                    webSocketService.send("/topic/signals", saved);
+
+                    return ResponseEntity.ok(saved);
                 })
                 .orElse(ResponseEntity.status(401).build());
     }
@@ -81,7 +93,7 @@ public class SignalController {
 
         // username only
         if (username != null) {
-            return ResponseEntity.ok(signalService.getSignalsByUsername(username));
+            return ResponseEntity.ok(signalService.searchSignalsByUsername(username));
         }
 
         // seeking + city
@@ -103,11 +115,8 @@ public class SignalController {
 
     // get the signal based on ID
     @GetMapping("/{id}")
-    public ResponseEntity<Signal> getSignal(
-            @PathVariable UUID id,
-            Authentication authentication) {
+    public ResponseEntity<?> getPost(@PathVariable UUID id, Authentication authentication) {
 
-        // track viewer — null if not logged in
         UUID viewerUserId = null;
         if (authentication != null && authentication.getPrincipal() != null) {
             String firebaseUid = authentication.getPrincipal().toString();
@@ -116,19 +125,37 @@ public class SignalController {
                     .orElse(null);
         }
 
-        signalService.trackView(id, viewerUserId);
-        return ResponseEntity.ok(signalService.getSignalById(id));
+        // Try Signal
+        Signal signal = signalService.getSignalByIdSafe(id);
+        if (signal != null) {
+            signalService.trackView(id, viewerUserId);
+            return ResponseEntity.ok(signal);
+        }
+
+        // Try Space
+        NearbySpace space = signalService.getNearbySpaceById(id);
+        if (space != null) {
+            return ResponseEntity.ok(space);
+        }
+
+        return ResponseEntity.status(404).body(Map.of("error", "Post not found"));
     }
 
     // get all my signals
-    @GetMapping("/my")
-    public ResponseEntity<List<Signal>> getMySignals(Authentication authentication) {
+    @GetMapping("/mine")
+    public ResponseEntity<?> getMyData(Authentication authentication) {
+
         if (authentication == null || authentication.getPrincipal() == null) {
             return ResponseEntity.status(401).build();
         }
+
         String firebaseUid = authentication.getPrincipal().toString();
+
         return userService.getUserByFirebaseUid(firebaseUid)
-                .map(user -> ResponseEntity.ok(signalService.getSignalsByUser(user.getId())))
+                .map(user -> {
+                    List<Signal> signals = signalService.getSignalsByUser(user.getId());
+                    return ResponseEntity.ok(signals);
+                })
                 .orElse(ResponseEntity.status(401).build());
     }
 
@@ -146,61 +173,53 @@ public class SignalController {
 
         return userService.getUserByFirebaseUid(firebaseUid)
                 .map(user -> {
-                    Signal existing = signalService.getSignalById(id);
+                    try {
+                        Object updated = signalService.updatePost(id, user, updatedSignal);
 
-                    // ✅ Only the owner can edit
-                    if (!existing.getUserId().equals(user.getId())) {
-                        return ResponseEntity.status(403).body("Forbidden: You don't own this signal");
+                        // broadcast based on type
+                        if (updated instanceof Signal) {
+                            webSocketService.send("/topic/signals",
+                                    Map.of("type", "UPDATE", "data", updated));
+                        } else {
+                            webSocketService.send("/topic/spaces", updated);
+                        }
+
+                        return ResponseEntity.ok(updated);
+
+                    } catch (RuntimeException ex) {
+                        return ResponseEntity.status(403).body(ex.getMessage());
                     }
-
-                    existing.setType(updatedSignal.getType());
-                    existing.setSeeking(updatedSignal.getSeeking());
-                    existing.setCategory(updatedSignal.getCategory());
-                    existing.setTitle(updatedSignal.getTitle());
-                    existing.setDescription(updatedSignal.getDescription());
-                    existing.setStage(updatedSignal.getStage());
-                    existing.setCity(updatedSignal.getCity());
-                    existing.setState(updatedSignal.getState());
-                    existing.setLat(updatedSignal.getLat());
-                    existing.setLng(updatedSignal.getLng());
-                    existing.setTimelineDays(updatedSignal.getTimelineDays());
-                    existing.setCompensation(updatedSignal.getCompensation());
-                    existing.setVisibility(updatedSignal.getVisibility());
-                    existing.setSignalStrength(updatedSignal.getSignalStrength());
-
-                    return ResponseEntity.ok(signalService.createSignal(existing));
                 })
                 .orElse(ResponseEntity.status(401).build());
     }
 
     // delete the signal
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteSignal(
-            Authentication authentication,
-            @PathVariable UUID id) {
+    public ResponseEntity<?> deletePost(Authentication authentication, @PathVariable UUID id) {
 
         if (authentication == null || authentication.getPrincipal() == null)
             return ResponseEntity.status(401).build();
 
         String firebaseUid = authentication.getPrincipal().toString();
-        // Normalize local- to dev_
-        if (firebaseUid.startsWith("local-")) {
-            firebaseUid = "dev_" + firebaseUid.substring(6);
-        }
 
-        final String uid = firebaseUid;
-        return userService.getUserByFirebaseUid(uid)
+        return userService.getUserByFirebaseUid(firebaseUid)
                 .map(user -> {
-                    Signal existing = signalService.getSignalById(id);
-                    if (existing == null) return ResponseEntity.status(404).body("Signal not found");
+                    try {
+                        String result = signalService.deletePost(id, user);
 
-                    // ✅ Only the owner can delete
-                    if (!existing.getUserId().equals(user.getId())) {
-                        return ResponseEntity.status(403).body("Forbidden: You don't own this signal");
+                        if (result.startsWith("Signal")) {
+                            webSocketService.send("/topic/signals",
+                                    Map.of("type", "DELETE", "signalId", id));
+                        } else {
+                            webSocketService.send("/topic/spaces",
+                                    Map.of("type", "DELETE", "spaceId", id));
+                        }
+
+                        return ResponseEntity.ok(result);
+
+                    } catch (RuntimeException ex) {
+                        return ResponseEntity.status(403).body(ex.getMessage());
                     }
-
-                    signalService.deleteSignal(id);
-                    return ResponseEntity.ok().body("Signal deleted successfully");
                 })
                 .orElse(ResponseEntity.status(401).build());
     }
@@ -257,6 +276,10 @@ public class SignalController {
             @RequestBody NearbySpace nearbySpace) {
         try {
             NearbySpace created = signalService.createNearbySpace(nearbySpace);
+
+            // broadcast new space
+            webSocketService.send("/topic/spaces", created);
+
             return ResponseEntity.ok(created);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));

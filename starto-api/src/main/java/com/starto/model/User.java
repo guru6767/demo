@@ -5,27 +5,36 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.io.Serializable;
+import com.starto.enums.Plan;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import lombok.Builder;
-import lombok.Data;
-
 @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+        @Index(name = "idx_users_firebase_uid", columnList = "firebase_uid"),
+        @Index(name = "idx_users_username", columnList = "username"),
+        @Index(name = "idx_users_plan", columnList = "plan"),
+        @Index(name = "idx_users_plan_expires_at", columnList = "plan_expires_at")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class User implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
+    @JsonIgnore
     @Column(name = "firebase_uid", unique = true, nullable = false, length = 128)
     private String firebaseUid;
 
@@ -38,7 +47,7 @@ public class User {
     @Column(unique = true, nullable = false)
     private String email;
 
-    @Column(length = 20)
+    @Column(nullable = false, unique = true, length = 20)
     private String phone;
 
     @Column(nullable = false, length = 50)
@@ -75,16 +84,16 @@ public class User {
     @Column(name = "linkedin_url", columnDefinition = "TEXT")
     private String linkedinUrl;
 
-    // add these two
     @Column(name = "twitter_url", columnDefinition = "TEXT")
     private String twitterUrl;
 
     @Column(name = "github_url", columnDefinition = "TEXT")
     private String githubUrl;
 
-    @Column(length = 20)
     @Builder.Default
-    private String plan = "free";
+    @Convert(converter = com.starto.config.PlanConverter.class)
+    @Column(nullable = false, length = 20)
+    private Plan plan = Plan.EXPLORER;
 
     @Column(name = "plan_expires_at")
     private OffsetDateTime planExpiresAt;

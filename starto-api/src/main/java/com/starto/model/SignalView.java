@@ -7,7 +7,10 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "signal_views")
+@Table(name = "signal_views", indexes = {
+        @Index(name = "idx_signal_views_signal_id", columnList = "signal_id"),
+        @Index(name = "idx_signal_views_viewer", columnList = "viewer_user_id")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

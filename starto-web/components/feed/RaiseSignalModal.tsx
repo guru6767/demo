@@ -61,16 +61,47 @@ export default function RaiseSignalModal({ isOpen, onClose, editSignal }: RaiseS
         const currentUsername = user?.username || 'user';
 
         if (editSignal) {
-            // Edit mode: update local store (backend PUT would need auth too)
-            useSignalStore.getState().updateSignal(editSignal.id, {
-                title: headline,
-                category,
-                description: details,
-                strength: `${duration} Days`,
-                type: signalType,
-            });
+            // Edit mode: try to update backend first
+            const authToken = token || (user?.username ? `dev_${user.username}` : '');
+            
+            const { error } = await signalsApi.update(
+                editSignal.id,
+                {
+                    title: headline,
+                    description: details,
+                    category,
+                    type: signalType,
+                    seeking: category,
+                    timelineDays: duration,
+                    signalStrength: `${duration} Days`,
+                },
+                authToken
+            );
+
+            if (!error) {
+                // Also update local store for instant UI feedback
+                useSignalStore.getState().updateSignal(editSignal.id, {
+                    title: headline,
+                    category,
+                    description: details,
+                    strength: `${duration} Days`,
+                    type: signalType,
+                });
+                setSubmitting(false);
+                onClose();
+            } else {
+                setToast({ type: 'warn', msg: `Server update failed: ${error}. Changes may not persist.` });
+                // Still update local store so user sees change immediately
+                useSignalStore.getState().updateSignal(editSignal.id, {
+                    title: headline,
+                    category,
+                    description: details,
+                    strength: `${duration} Days`,
+                    type: signalType,
+                });
+                setTimeout(() => { onClose(); }, 2000);
+            }
             setSubmitting(false);
-            onClose();
             return;
         }
 
@@ -93,11 +124,21 @@ export default function RaiseSignalModal({ isOpen, onClose, editSignal }: RaiseS
         );
 
         if (data && !error) {
-            // ✅ Saved to DB — show success toast briefly then close
+            // ✅ Saved to DB — also add to local store with the SAME ID for de-duplication
+            addSignal({
+                title: headline,
+                username: currentUsername,
+                timeAgo: 'Just now',
+                category,
+                description: details,
+                strength: `${duration} Days`,
+                type: signalType,
+                userPlan: user?.subscription || user?.plan || 'Free',
+            }, data.id);
             setToast({ type: 'success', msg: '✓ Signal broadcast to backend DB!' });
             setTimeout(() => { onClose(); }, 1200);
-        } else if (status === 401 || status === 403) {
-            // ⚠️ Firebase token not valid (dummy key) — fall back to local store
+        } else if (status === 401) {
+            // ⚠️ Authentication Issue
             addSignal({
                 title: headline,
                 username: currentUsername,
@@ -108,8 +149,15 @@ export default function RaiseSignalModal({ isOpen, onClose, editSignal }: RaiseS
                 type: signalType,
                 userPlan: user?.subscription || user?.plan || 'Free',
             });
-            setToast({ type: 'warn', msg: '⚠ Saved locally (backend auth not configured)' });
+            setToast({ type: 'warn', msg: '⚠ Session expired. Please login again.' });
             setTimeout(() => { onClose(); }, 1500);
+        } else if (status === 403) {
+            // 🚫 Limit reached or Forbidden
+            const errMsg = error || 'Signal limit reached for your plan.';
+            setToast({ type: 'warn', msg: `🚫 ${errMsg}` });
+            if (errMsg.toLowerCase().includes('limit')) {
+                setTimeout(() => { router.push('/subscription'); onClose(); }, 2000);
+            }
         } else {
             // Network error or other — fall back to local
             addSignal({

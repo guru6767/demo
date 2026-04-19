@@ -1,15 +1,22 @@
 package com.starto.controller;
 
 import com.starto.model.User;
+import com.starto.service.PresenceService;
 import com.starto.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
+import java.time.OffsetDateTime;
+import com.starto.service.PresenceService;
+
+import com.starto.dto.PublicUserDTO;
+import com.starto.enums.Plan;
 
 import java.util.Map;
 import java.util.HashMap;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
@@ -17,6 +24,7 @@ import java.util.HashMap;
 public class UserController {
 
     private final UserService userService;
+    private final PresenceService presenceService;
 
     // checks username is available or not
     @GetMapping("/check-username")
@@ -41,37 +49,37 @@ public class UserController {
 
     // edit the user profile
     @PutMapping("/profile")
-    public ResponseEntity<User> updateProfile(@AuthenticationPrincipal String firebaseUid,
+    public ResponseEntity<?> updateProfile(@AuthenticationPrincipal String firebaseUid,
             @RequestBody User profileUpdates) {
         return userService.getUserByFirebaseUid(firebaseUid)
                 .map(user -> {
-                    // Update allowed fields
-                    user.setName(profileUpdates.getName());
-                    user.setUsername(profileUpdates.getUsername());
-                    user.setBio(profileUpdates.getBio());
-                    user.setIndustry(profileUpdates.getIndustry());
-                    user.setCity(profileUpdates.getCity());
+                    // Check username conflict if it's changing
+                    if (profileUpdates.getUsername() != null && !profileUpdates.getUsername().equals(user.getUsername())) {
+                        if (userService.getUserByUsername(profileUpdates.getUsername()).isPresent()) {
+                            return ResponseEntity.status(409).body(Map.of("error", "Username already taken"));
+                        }
+                        user.setUsername(profileUpdates.getUsername());
+                    }
+
+                    if (profileUpdates.getName() != null) user.setName(profileUpdates.getName());
+                    if (profileUpdates.getBio() != null) user.setBio(profileUpdates.getBio());
+                    if (profileUpdates.getIndustry() != null) user.setIndustry(profileUpdates.getIndustry());
+                    if (profileUpdates.getSubIndustry() != null) user.setSubIndustry(profileUpdates.getSubIndustry());
+                    if (profileUpdates.getCity() != null) user.setCity(profileUpdates.getCity());
+                    if (profileUpdates.getState() != null) user.setState(profileUpdates.getState());
+                    if (profileUpdates.getCountry() != null) user.setCountry(profileUpdates.getCountry());
+                    if (profileUpdates.getAvatarUrl() != null) user.setAvatarUrl(profileUpdates.getAvatarUrl());
+                    if (profileUpdates.getWebsiteUrl() != null) user.setWebsiteUrl(profileUpdates.getWebsiteUrl());
+                    if (profileUpdates.getLinkedinUrl() != null) user.setLinkedinUrl(profileUpdates.getLinkedinUrl());
+                    if (profileUpdates.getTwitterUrl() != null) user.setTwitterUrl(profileUpdates.getTwitterUrl());
+                    if (profileUpdates.getGithubUrl() != null) user.setGithubUrl(profileUpdates.getGithubUrl());
+                    if (profileUpdates.getLat() != null) user.setLat(profileUpdates.getLat());
+                    if (profileUpdates.getLng() != null) user.setLng(profileUpdates.getLng());
+                    if (profileUpdates.getFcmToken() != null) user.setFcmToken(profileUpdates.getFcmToken());
+
                     return ResponseEntity.ok(userService.updateProfile(user));
                 })
                 .orElse(ResponseEntity.notFound().build());
-    }
-
-    // Frontend calls this every 30-60 seconds to keep user online
-    @PostMapping("/heartbeat")
-    public ResponseEntity<?> heartbeat(Authentication authentication) {
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
-        userService.markOnline(authentication.getPrincipal().toString());
-        return ResponseEntity.ok().build();
-    }
-
-    // Frontend calls this on logout
-    @PostMapping("/logout")
-    public ResponseEntity<?> logout(Authentication authentication) {
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
-        userService.markOffline(authentication.getPrincipal().toString());
-        return ResponseEntity.ok().build();
     }
 
     // Get my own full profile
@@ -86,9 +94,9 @@ public class UserController {
 
     // Get any user by username (public)
     @GetMapping("/{username}")
-    public ResponseEntity<User> getUserByUsername(@PathVariable String username) {
+    public ResponseEntity<?> getUserByUsername(@PathVariable String username) {
         return userService.getUserByUsername(username)
-                .map(ResponseEntity::ok)
+                .map(user -> ResponseEntity.ok(PublicUserDTO.from(user)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -103,5 +111,85 @@ public class UserController {
                     return ResponseEntity.ok(response);
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/plan-status")
+    public ResponseEntity<?> getPlanStatus(Authentication authentication) {
+        if (authentication == null)
+            return ResponseEntity.status(401).build();
+
+        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
+                .map(user -> {
+                    Map<String, Object> status = new HashMap<>();
+                    status.put("plan", user.getPlan().name());
+                    status.put("planExpiresAt", user.getPlanExpiresAt() != null
+                            ? user.getPlanExpiresAt().toString()
+                            : null);
+                    status.put("isActive", user.getPlanExpiresAt() == null ||
+                            user.getPlanExpiresAt().isAfter(OffsetDateTime.now()));
+
+                    // days remaining
+                    if (user.getPlanExpiresAt() != null) {
+                        long daysLeft = java.time.temporal.ChronoUnit.DAYS.between(
+                                OffsetDateTime.now(), user.getPlanExpiresAt());
+                        status.put("daysLeft", Math.max(daysLeft, 0));
+                    } else {
+                        status.put("daysLeft", user.getPlan() == Plan.EXPLORER ? "unlimited" : 0);
+                    }
+
+                    return ResponseEntity.ok(status);
+                })
+                .orElse(ResponseEntity.status(401).build());
+    }
+
+    // ← UPDATED heartbeat — both DB and Redis
+    @PostMapping("/heartbeat")
+    public ResponseEntity<?> heartbeat(Authentication authentication) {
+        if (authentication == null)
+            return ResponseEntity.status(401).build();
+
+        String uid = authentication.getPrincipal().toString();
+
+        // update DB
+        userService.updatePresence(uid);
+
+        // update Redis — get city from user for presence topic
+        userService.getUserByFirebaseUid(uid).ifPresent(user -> {
+            String city = user.getCity() != null ? user.getCity() : "unknown";
+            presenceService.markOnline(uid, city);
+        });
+
+        return ResponseEntity.ok().build();
+    }
+
+    // ← UPDATED logout — both DB and Redis
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(Authentication authentication) {
+        if (authentication == null)
+            return ResponseEntity.status(401).build();
+
+        String uid = authentication.getPrincipal().toString();
+
+        // update DB
+        userService.markOffline(uid);
+
+        // update Redis
+        presenceService.markOffline(uid);
+
+        return ResponseEntity.ok().build();
+    }
+
+    // Get nearby users
+    @GetMapping("/nearby")
+    public ResponseEntity<List<PublicUserDTO>> getNearby(
+            @RequestParam(required = false) String role,
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam(defaultValue = "50") double radius) {
+
+        List<User> nearby = userService.getNearbyUsers(role, lat, lng, radius);
+        return ResponseEntity.ok(nearby.stream()
+                .map(PublicUserDTO::from)
+                .toList());
     }
 }

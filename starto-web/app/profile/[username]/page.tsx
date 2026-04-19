@@ -122,7 +122,7 @@ export default function PublicProfile({ params }: { params: { username: string }
                             {displayAvatarUrl ? (
                                 <Image src={displayAvatarUrl} alt="Profile" fill className="object-cover rounded-2xl" unoptimized />
                             ) : (
-                                <Image src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(paramUsername)}`} alt={displayName} fill className="object-cover rounded-2xl" unoptimized />
+                                <Image src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(paramUsername)}`} alt={displayName} fill className="object-cover rounded-2xl" unoptimized />
                             )}
                         </div>
                         

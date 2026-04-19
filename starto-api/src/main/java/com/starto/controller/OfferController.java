@@ -2,8 +2,12 @@ package com.starto.controller;
 
 import com.starto.dto.OfferRequestDTO;
 import com.starto.model.Offer;
+import com.starto.model.User;
+import com.starto.enums.Plan;
 import com.starto.service.OfferService;
+import com.starto.service.PlanService;
 import com.starto.service.UserService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -20,6 +24,17 @@ public class OfferController {
 
     private final OfferService offerService;
     private final UserService userService;
+    private final PlanService planService;
+
+    // 🔹 helper
+    private User getUser(Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            return null;
+        }
+        return userService
+                .getUserByFirebaseUid(authentication.getPrincipal().toString())
+                .orElse(null);
+    }
 
     // talent sends offer
     @PostMapping("/request")
@@ -27,69 +42,80 @@ public class OfferController {
             Authentication authentication,
             @RequestBody OfferRequestDTO dto) {
 
-        if (authentication == null)
+        User user = getUser(authentication);
+        if (user == null)
             return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> ResponseEntity.ok(offerService.sendOffer(user, dto)))
-                .orElse(ResponseEntity.status(401).build());
+        // 🔥 Use safe parser (VERY IMPORTANT)
+        Plan plan = user.getPlan();
+
+        // 🔥 Get current usage
+        int usedOffers = offerService.countUserOffers(user.getId());
+
+        // 🔥 Enforce limit
+        if (!planService.canSendOffer(plan, usedOffers)) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "error", "Offer limit reached",
+                    "upgradeUrl", "/api/subscriptions/upgrade"));
+        }
+
+        return ResponseEntity.ok(offerService.sendOffer(user, dto));
     }
 
-    // founder sees pending offers
+    // founder sees inbox
     @GetMapping("/inbox")
-    public ResponseEntity<List<Offer>> getInbox(Authentication authentication) {
-        if (authentication == null)
+    public ResponseEntity<?> getInbox(Authentication authentication) {
+        User user = getUser(authentication);
+        if (user == null)
             return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> ResponseEntity.ok(offerService.getAllOffers(user.getId())))
-                .orElse(ResponseEntity.status(401).build());
+        return ResponseEntity.ok(offerService.getAllOffers(user.getId()));
     }
 
-    // talent sees sent offers
+    // talent sees sent
     @GetMapping("/sent")
-    public ResponseEntity<List<Offer>> getSent(Authentication authentication) {
-        if (authentication == null)
+    public ResponseEntity<?> getSent(Authentication authentication) {
+        User user = getUser(authentication);
+        if (user == null)
             return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> ResponseEntity.ok(offerService.getSentOffers(user.getId())))
-                .orElse(ResponseEntity.status(401).build());
+        return ResponseEntity.ok(offerService.getSentOffers(user.getId()));
     }
 
-    // get whatsapp link
+    // 🔥 WhatsApp link with PLAN CONTROL
     @GetMapping("/{offerId}/whatsapp")
     public ResponseEntity<?> getWhatsappLink(
             Authentication authentication,
             @PathVariable UUID offerId) {
 
-        if (authentication == null)
+        User user = getUser(authentication);
+        if (user == null)
             return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> {
-                    Offer offer = offerService.getOfferById(offerId);
+        Offer offer = offerService.getOfferById(offerId);
 
-                    // founder always gets link
-                    if (offer.getReceiverId().equals(user.getId())) {
-                        String link = offerService.getWhatsappLink(user, offerId);
-                        return ResponseEntity.ok(Map.of("whatsappUrl", link));
-                    }
+        // 🔥 Convert plan
+        Plan plan = Plan.valueOf(user.getPlan().name().toUpperCase());
 
-                    // talent only if premium
-                    if (offer.getRequesterId().equals(user.getId())) {
-                        if (user.getPlan() != null && user.getPlan().equalsIgnoreCase("premium")) {
-                            String link = offerService.getWhatsappLink(user, offerId);
-                            return ResponseEntity.ok(Map.of("whatsappUrl", link));
-                        } else {
-                            return ResponseEntity.status(403).body(Map.of(
-                                    "error", "Upgrade to premium to initiate contact",
-                                    "upgradeUrl", "/api/subscriptions/upgrade"));
-                        }
-                    }
+        // ✅ Founder always allowed
+        if (offer.getReceiverId().equals(user.getId())) {
+            String link = offerService.getWhatsappLink(user, offerId);
+            return ResponseEntity.ok(Map.of("whatsappUrl", link));
+        }
 
-                    return ResponseEntity.status(403).body(Map.of("error", "Forbidden"));
-                })
-                .orElse(ResponseEntity.status(401).build());
+        // ✅ Talent (plan-based access)
+        if (offer.getRequesterId().equals(user.getId())) {
+
+            if (planService.isWhatsappUnlocked(plan)) {
+                String link = offerService.getWhatsappLink(user, offerId);
+                return ResponseEntity.ok(Map.of("whatsappUrl", link));
+            } else {
+                return ResponseEntity.status(403).body(Map.of(
+                        "error", "Upgrade your plan to unlock WhatsApp",
+                        "upgradeUrl", "/api/subscriptions/upgrade"));
+            }
+        }
+
+        return ResponseEntity.status(403).body(Map.of("error", "Forbidden"));
     }
 }

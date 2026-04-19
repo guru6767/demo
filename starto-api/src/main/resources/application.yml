@@ -14,6 +14,17 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  mail:
+    host: localhost
+    port: 1025
+    username: user
+    password: password
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
 
 logging:
   level:
@@ -24,20 +35,27 @@ server:
   port: 8081
 
 openai:
-  api-key: ${OPENAI_API_KEY}
+  api-key: ${OPENAI_API_KEY:dummy_key}
 
 google:
   ai:
-    api-key: AIzaSyA629ErsahC4X340k129_GZraW6BcQ6Lh8
+    api-key: ${GEMINI_API_KEY:AIzaSyA629ErsahC4X340k129_GZraW6BcQ6Lh8}
   maps:
-    api-key: AIzaSyDKFYLZS7YUysjKu-rnKKK3VA-kGh3R2Fk
+    api-key: ${GOOGLE_MAPS_API_KEY:AIzaSyDKFYLZS7YUysjKu-rnKKK3VA-kGh3R2Fk}
 
 firebase:
-  config-path: C:/Users/sagar/Documents/starto/starto-v3/starto-api/src/main/resources/firebase-service-account.json
+  config-path: ${FIREBASE_CONFIG_PATH:src/main/resources/firebase-service-account.json}
 
 razorpay:
   key:
-    id: rzp_test_SRvnpJPD9swW9T
-    secret: 1nWcy28BUbEFnQhJwWefBOMd
-  plan:
-    id: plan_fake123456789
+    id: ${RAZORPAY_KEY_ID:rzp_live_SetihMoannIew3}
+    secret: ${RAZORPAY_KEY_SECRET:0xIGSxuobSuqpt2u2s3K4bKN}
+  plans:
+    sprint: plan_Sf2GSCBf5wTrzk
+    boost: plan_Sf2GSCBf5wTrzk
+    pro: plan_Sf2GSCBf5wTrzk
+    captain: plan_Sf2GSCBf5wTrzk
+    captainPro: plan_Sf2GSCBf5wTrzk
+    proPlus: plan_Sf2GSCBf5wTrzk
+    growth: plan_Sf2GSCBf5wTrzk
+    annual: plan_Sf2GSCBf5wTrzk

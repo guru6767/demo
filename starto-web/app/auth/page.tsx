@@ -8,9 +8,14 @@ import CityAutocomplete from '@/components/CityAutocomplete'
 
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useLocalUserStore } from '@/store/useLocalUserStore'
 import { useSignalStore } from '@/store/useSignalStore'
 import { usersApi } from '@/lib/apiClient'
+import { auth } from '@/lib/firebase'
+import { 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    sendEmailVerification 
+} from 'firebase/auth'
 
 type AuthMode = 'login' | 'signup' | 'onboarding' | 'forgot_password'
 
@@ -19,7 +24,6 @@ const ROLES = ['Founder', 'Talent', 'Mentor', 'Investor']
 export default function AuthPage() {
     const router = useRouter()
     const { setAuth } = useAuthStore()
-    const { registerUser, loginUser, getAllUsernames, updateUserRecord, getUserByPhone, updatePasswordByPhone } = useLocalUserStore()
 
     const [mode, setMode] = useState<AuthMode>('login')
 
@@ -143,59 +147,24 @@ export default function AuthPage() {
         setLoading(true)
         setError('')
         try {
-            const result = loginUser(email.trim(), password)
-            if (!result.success || !result.user) {
-                setError(result.error || 'Invalid credentials.')
+            // 1. Firebase Login
+            const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password)
+            const firebaseUser = userCredential.user
+            const token = await firebaseUser.getIdToken()
+
+            // 2. Fetch Profile from Backend
+            const { data: profile, error: apiError } = await usersApi.getMe(token)
+
+            if (apiError || !profile) {
+                setError(apiError || 'Failed to load profile from server.')
                 return
             }
 
-            const u = result.user
-            const migration = ensureFormattedUsername(u)
-            const username = migration.username
-
-            // Also rename all existing signals/comments that used the old username
-            if (migration.changed && migration.oldUsername) {
-                useSignalStore.getState().migrateUsername(migration.oldUsername, username)
-            }
-
-            // Build base profile from local store
-            const baseProfile = {
-                id: `local-${username}`,
-                firebaseUid: `local-${username}`,
-                username,
-                name: u.name,
-                email: u.email,
-                phone: u.phone,
-                role: u.role,
-                industry: '',
-                city: u.city,
-                state: '',
-                bio: u.bio,
-                avatarUrl: `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.avatarSeed}${u.gender === 'Female' ? '&top=longHair' : '&top=shortHair&facialHairProbability=0'}`,
-                plan: 'Free',
-                signalCount: 0,
-                networkSize: 0,
-            }
-
-            // ── Try to fetch live profile from backend ────────────────────────
-            let finalProfile = baseProfile
-            const { data: backendUser } = await usersApi.getByUsername(username)
-            if (backendUser) {
-                // Merge backend data (plan, signalCount, etc.) into local profile
-                finalProfile = {
-                    ...baseProfile,
-                    id: backendUser.id || baseProfile.id,
-                    plan: backendUser.plan || 'Free',
-                    bio: backendUser.bio || u.bio,
-                    city: backendUser.city || u.city,
-                    industry: backendUser.industry || '',
-                    signalCount: backendUser.signalCount ?? 0,
-                    networkSize: backendUser.networkSize ?? 0,
-                }
-            }
-
-            setAuth({ email: u.email, displayName: u.name, getIdToken: async () => `local-${username}` } as any, `local-${username}`, finalProfile)
-            router.push('/feed')
+            // 3. Set Auth State & Redirect
+            setAuth(firebaseUser, token, profile as any)
+            router.push('/dashboard')
+        } catch (err: any) {
+            setError(err.message || 'Login failed.')
         } finally {
             setLoading(false)
         }
@@ -212,51 +181,37 @@ export default function AuthPage() {
                 return
             }
 
-            // Email validation regex
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-            if (!emailRegex.test(email.trim())) {
-                setError('Please enter a valid email address.')
+            // 1. Firebase Create User
+            const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password)
+            const firebaseUser = userCredential.user
+            
+            // 2. Send Verification Email
+            await sendEmailVerification(firebaseUser)
+            
+            const token = await firebaseUser.getIdToken()
+
+            // 3. Sync with Backend
+            const { data: profile, error: apiError } = await usersApi.register({
+                email: email.trim(),
+                name: name.trim(),
+                role,
+                bio,
+                city,
+                phone,
+                gender
+            } as any, token)
+
+            if (apiError || !profile) {
+                setError(apiError || 'Account created in Firebase, but failed to sync with our servers.')
                 return
             }
 
-            if (password.length < 8) {
-                setError('Password must be at least 8 characters.')
-                return
-            }
-
-            if (password !== confirmPassword) {
-                setError('Passwords do not match.')
-                return
-            }
-
-            if (phone && !isValidPhoneNumber(phone)) {
-                setError('Please enter a valid mobile number for the selected country.')
-                return
-            }
-
-            // Generate username using same logic as login migration
-            const { base: baseHandle, roleSlug, canonical } = buildCanonicalUsername(name, role)
-            const existingUsernames = getAllUsernames()
-
-            // Auto-increment if taken: sagar_g_talent → sagar_g1_talent → sagar_g2_talent
-            let username = canonical
-            if (existingUsernames.includes(username)) {
-                let counter = 1
-                while (existingUsernames.includes(`${baseHandle}${counter}_${roleSlug}`)) {
-                    counter++
-                }
-                username = `${baseHandle}${counter}_${roleSlug}`
-            }
-
-            const avatarSeed = username + Date.now()
-
-            const result = registerUser({ email: email.trim(), password, name: name.trim(), role, bio, city, phone, username, avatarSeed, gender } as any)
-            if (!result.success) {
-                setError(result.error || 'Registration failed.')
-                return
-            }
-
+            // 4. Set Auth State & Redirect
+            setAuth(firebaseUser, token, profile as any)
             setSignupSuccess(true)
+            router.push('/dashboard')
+        } catch (err: any) {
+            setError(err.message || 'Registration failed.')
         } finally {
             setLoading(false)
         }

@@ -50,9 +50,10 @@ export const useNetworkStore = create<NetworkState>()(
                 let success = false;
                 if (token && token !== 'mock-token') {
                     try {
-                        const { error } = await connectionsApi.sendRequest(signalId, message, token);
+                        const authToken = token.startsWith('local-') ? 'dev_' + token.substring(6) : token;
+                        const { error } = await connectionsApi.sendRequest(signalId, message, authToken, targetUsername);
                         if (!error) {
-                            await get().fetchRequests(token);
+                            await get().fetchRequests(authToken);
                             success = true;
                         } else {
                             console.error('Backend sendRequest error:', error);
