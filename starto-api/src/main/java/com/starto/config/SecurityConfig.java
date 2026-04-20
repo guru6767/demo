@@ -86,6 +86,8 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
+                // CORS preflight must pass without auth — browser sends OPTIONS before every cross-origin request
+                .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(
                     "/api/public/**",
                     "/ws/**",
@@ -96,6 +98,7 @@ public class SecurityConfig {
                     "/api/users/check-username",
                     "/api/subscriptions/webhook/razorpay",
                     "/api/subscriptions/create",
+                    "/api/subscriptions/plans",
                     "/actuator/health"
                 ).permitAll()
                 .anyRequest().authenticated()

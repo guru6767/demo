@@ -15,6 +15,7 @@ import java.util.UUID;
 @Table(name = "responses")
 @Data
 @NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class Response {
     @Id

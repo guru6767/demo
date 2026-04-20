@@ -14,6 +14,7 @@ import java.util.UUID;
 @Table(name = "messages")
 @Data
 @NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class Message {
     @Id

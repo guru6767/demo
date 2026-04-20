@@ -18,6 +18,9 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
+        String method = request.getMethod();
+        // Let CORS preflight pass through without Firebase auth check
+        if ("OPTIONS".equalsIgnoreCase(method)) return true;
         return path.equals("/api/auth/forgot-password");
     }
 
