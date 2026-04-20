@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import com.starto.service.WebSocketService;
 import com.starto.dto.SignalRequestDTO;
 import com.starto.dto.NearbyUserDTO;
+import org.springframework.data.domain.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -127,10 +128,11 @@ public class SignalController {
                description = "Returns active signals. Supports optional ?city, ?seeking, ?username filters.")
     @ApiResponse(responseCode = "200", description = "Signal list")
     @GetMapping
-    public ResponseEntity<List<Signal>> getSignals(
+    public ResponseEntity<?> getSignals(
             @Parameter(description = "Filter by city") @RequestParam(required = false) String city,
             @Parameter(description = "Filter by what the poster is seeking") @RequestParam(required = false) String seeking,
-            @Parameter(description = "Filter by owner username") @RequestParam(required = false) String username) {
+            @Parameter(description = "Filter by owner username") @RequestParam(required = false) String username,
+            @Parameter(description = "Page number for paginated feed (0-indexed, default 0)") @RequestParam(defaultValue = "0") int page) {
 
     // username + seeking
     if (username != null && seeking != null) {
@@ -139,8 +141,8 @@ public class SignalController {
 
     // username only
     if (username != null) {
-    return ResponseEntity.ok(signalService.searchSignalsByUsername(username));  
-}
+        return ResponseEntity.ok(signalService.searchSignalsByUsername(username));
+    }
 
     // seeking + city
     if (seeking != null && city != null) {
@@ -156,7 +158,10 @@ public class SignalController {
     if (city != null) {
         return ResponseEntity.ok(signalService.getSignalsByCity(city));
     }
-        return ResponseEntity.ok(signalService.getActiveSignals());
+
+    // Fix #8: default feed — paginated (20/page), JOIN FETCH (no N+1)
+    Page<Signal> feedPage = signalService.getSignalsFeed(page);
+    return ResponseEntity.ok(feedPage);
     }
 
 

@@ -1,16 +1,48 @@
 package com.starto.repository;
 
 import com.starto.model.Signal;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 
 import java.util.List;
-import java.time.OffsetDateTime; 
-import org.springframework.data.jpa.repository.Query;          
-import org.springframework.data.repository.query.Param; 
+import java.time.OffsetDateTime;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import java.util.UUID;
 
 public interface SignalRepository extends JpaRepository<Signal, UUID> {
+
+    /**
+     * Fix #7 N+1: single query with JOIN FETCH loads signal + user in one round-trip.
+     * Use this instead of findAll() or findByStatusOrderByCreatedAtDesc() for the feed.
+     */
+    @Query("SELECT s FROM Signal s JOIN FETCH s.user ORDER BY s.createdAt DESC")
+    List<Signal> findAllWithUser();
+
+    /**
+     * Fix #8 Pagination: paginated feed query, also JOIN FETCH to avoid N+1.
+     * Controller passes PageRequest.of(page, 20, Sort.by("createdAt").descending()).
+     *
+     * NOTE: Spring Data cannot apply Pageable directly to a JOIN FETCH query in JPQL
+     * (it performs in-memory pagination which defeats the purpose). Use countQuery to
+     * let Spring issue a separate COUNT for the Page metadata.
+     */
+    @Query(
+        value      = "SELECT s FROM Signal s JOIN FETCH s.user",
+        countQuery = "SELECT COUNT(s) FROM Signal s"
+    )
+    Page<Signal> findAllWithUserPageable(Pageable pageable);
+
+    /** Active signals only — paginated, JOIN FETCH to avoid N+1 */
+    @Query(
+        value      = "SELECT s FROM Signal s JOIN FETCH s.user WHERE s.status = 'open'",
+        countQuery = "SELECT COUNT(s) FROM Signal s WHERE s.status = 'open'"
+    )
+    Page<Signal> findActiveWithUserPageable(Pageable pageable);
+
     List<Signal> findByType(String type);
     List<Signal> findByStatus(String status);
     List<Signal> findByUserId(UUID userId);

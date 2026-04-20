@@ -274,3 +274,69 @@ CREATE TABLE IF NOT EXISTS nearby_spaces (
 );
 
 CREATE INDEX IF NOT EXISTS idx_nearby_location ON nearby_spaces USING GIST(location_point);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Comments
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS comments (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  signal_id  UUID REFERENCES signals(id) ON DELETE CASCADE,
+  user_id    UUID REFERENCES users(id)   ON DELETE CASCADE,
+  parent_id  UUID REFERENCES comments(id) ON DELETE CASCADE,
+  content    TEXT        NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_signal_id ON comments(signal_id);
+CREATE INDEX IF NOT EXISTS idx_comments_user_id   ON comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_comments_parent_id ON comments(parent_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Offers
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS offers (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  signal_id  UUID REFERENCES signals(id) ON DELETE CASCADE,
+  user_id    UUID REFERENCES users(id)   ON DELETE CASCADE,
+  amount     BIGINT,
+  currency   VARCHAR(10)  DEFAULT 'INR',
+  message    TEXT,
+  status     VARCHAR(20)  DEFAULT 'pending',
+  created_at TIMESTAMPTZ  DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_offers_signal_id ON offers(signal_id);
+CREATE INDEX IF NOT EXISTS idx_offers_user_id   ON offers(user_id);
+CREATE INDEX IF NOT EXISTS idx_offers_status    ON offers(status);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Reviews
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS reviews (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reviewer_id UUID REFERENCES users(id)   ON DELETE CASCADE,
+  reviewee_id UUID REFERENCES users(id)   ON DELETE CASCADE,
+  signal_id   UUID REFERENCES signals(id) ON DELETE SET NULL,
+  rating      INTEGER CHECK (rating >= 1 AND rating <= 5),
+  comment     TEXT,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_reviews_reviewer_id ON reviews(reviewer_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_reviewee_id ON reviews(reviewee_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_signal_id   ON reviews(signal_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Signal Views
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS signal_views (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  signal_id  UUID REFERENCES signals(id) ON DELETE CASCADE,
+  viewer_id  UUID REFERENCES users(id)   ON DELETE SET NULL,
+  viewed_at  TIMESTAMPTZ DEFAULT now(),
+  ip_address VARCHAR(45)
+);
+
+CREATE INDEX IF NOT EXISTS idx_signal_views_signal_id ON signal_views(signal_id);
+CREATE INDEX IF NOT EXISTS idx_signal_views_viewer_id ON signal_views(viewer_id);

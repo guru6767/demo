@@ -18,6 +18,9 @@ import com.starto.service.WebSocketService;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -108,9 +111,19 @@ public class SignalService {
         return signalRepository.save(existing);
     }
 
+    /**
+     * Fix #7 + #8: paginated feed with JOIN FETCH — eliminates N+1 user selects.
+     * Accepts ?page=0 query param; returns Page<Signal> with 20 results per page.
+     */
+    public Page<Signal> getSignalsFeed(int page) {
+        PageRequest pr = PageRequest.of(page, 20, Sort.by("createdAt").descending());
+        return signalRepository.findActiveWithUserPageable(pr);
+    }
+
     @Cacheable(value = "signalCache", key = "'activeSignals'")
     public List<Signal> getActiveSignals() {
-        return signalRepository.findByStatusOrderByCreatedAtDesc("open");
+        // Fix #7: JOIN FETCH loads signal + user in a single SQL query (no N+1)
+        return signalRepository.findAllWithUser();
     }
 
     public List<Signal> getSignalsByCity(String city) {
