@@ -194,7 +194,7 @@ export default function HomeFeed() {
                             <WifiOff className="w-4 h-4 shrink-0 mt-0.5" />
                             <span>
                                 <strong>Backend unreachable:</strong> {backendError}. Showing local signals only.
-                                Make sure the Spring Boot server is running at <code className="font-mono bg-orange-100 px-1 rounded">localhost:8081</code>.
+                                Make sure the Spring Boot server is running at <code className="font-mono bg-orange-100 px-1 rounded">localhost:8080</code>.
                             </span>
                         </div>
                     )}

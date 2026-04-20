@@ -1,10 +1,11 @@
 /**
  * Starto API Client
  * Centralized HTTP client for all backend calls.
- * Uses NEXT_PUBLIC_API_BASE_URL from .env.local (default: http://localhost:8081)
+ * Uses NEXT_PUBLIC_API_BASE_URL from .env.local (default: http://localhost:8080)
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8081';
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+
 
 // ─── Types matching the Spring Boot backend models ───────────────────────────
 
