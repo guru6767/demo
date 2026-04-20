@@ -9,6 +9,12 @@ import lombok.RequiredArgsConstructor;
 import com.starto.service.WebSocketService;
 import com.starto.dto.SignalRequestDTO;
 import com.starto.dto.NearbyUserDTO;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,6 +26,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Signal management controller — the platform's most-used API surface.
+ *
+ * <p>Signals are time-boxed opportunity posts (funding asks, co-founder searches,
+ * mentor requests) that expire after 7 days by default. Supports full CRUD,
+ * nearby geo-lookup, real-time WebSocket broadcast, and per-signal analytics.</p>
+ */
+@Tag(name = "Signals", description = "Create, read, update, delete and discover opportunity signals")
 @RestController
 @RequestMapping("/api/signals")
 @RequiredArgsConstructor
@@ -29,11 +43,28 @@ public class SignalController {
     private final UserService userService;
     private final WebSocketService webSocketService;
 
-    //create the signal
- @PostMapping
-public ResponseEntity<?> createSignal(
-        Authentication authentication,
-        @Valid @RequestBody SignalRequestDTO dto) {
+    /**
+     * Create a new signal.
+     *
+     * <p>Validates the caller's subscription plan limits before persisting.
+     * On success, broadcasts the new signal over WebSocket {@code /topic/signals}.</p>
+     *
+     * @param dto validated signal payload
+     * @return {@code 200 OK} with the saved {@link Signal}, {@code 403} if plan limit exceeded
+     */
+    @Operation(summary = "Create a signal",
+               description = "Posts a new opportunity signal. Requires a valid Firebase ID token. Plan limits apply.",
+               security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Signal created successfully"),
+        @ApiResponse(responseCode = "400", description = "Validation error"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid Firebase token"),
+        @ApiResponse(responseCode = "403", description = "Plan limit reached — upgrade required")
+    })
+    @PostMapping
+    public ResponseEntity<?> createSignal(
+            Authentication authentication,
+            @Valid @RequestBody SignalRequestDTO dto) {
 
     if (authentication == null || authentication.getPrincipal() == null)
         return ResponseEntity.status(401).build();
@@ -84,11 +115,22 @@ public ResponseEntity<?> createSignal(
 }
         
    
-    //Get all the signals based on filter
+    /**
+     * List active signals with optional filters.
+     *
+     * @param city     filter by city name
+     * @param seeking  filter by seeking type (e.g. "funding", "cofounder")
+     * @param username filter by signal owner's username
+     * @return list of matching {@link Signal} objects
+     */
+    @Operation(summary = "List signals",
+               description = "Returns active signals. Supports optional ?city, ?seeking, ?username filters.")
+    @ApiResponse(responseCode = "200", description = "Signal list")
     @GetMapping
-    public ResponseEntity<List<Signal>> getSignals( @RequestParam(required = false) String city,
-        @RequestParam(required = false) String seeking,
-        @RequestParam(required = false) String username) {
+    public ResponseEntity<List<Signal>> getSignals(
+            @Parameter(description = "Filter by city") @RequestParam(required = false) String city,
+            @Parameter(description = "Filter by what the poster is seeking") @RequestParam(required = false) String seeking,
+            @Parameter(description = "Filter by owner username") @RequestParam(required = false) String username) {
 
     // username + seeking
     if (username != null && seeking != null) {
@@ -275,12 +317,22 @@ public ResponseEntity<?> getInsights(
             .orElse(ResponseEntity.status(401).build());
 }
 
-     //getting the nearBy data
+    /**
+     * Discover nearby signals, spaces, and users within {@code radiusKm} km.
+     *
+     * @param lat      latitude of the search centre
+     * @param lng      longitude of the search centre
+     * @param radiusKm search radius in kilometres (default 10)
+     * @return map containing {@code signals}, {@code nearbySpaces}, and {@code users}
+     */
+    @Operation(summary = "Nearby map data",
+               description = "Returns signals, coworking spaces and users within radiusKm of the given coordinates.")
+    @ApiResponse(responseCode = "200", description = "Nearby items")
     @GetMapping("/nearby")
     public ResponseEntity<?> getNearbyMapData(
-            @RequestParam double lat,
-            @RequestParam double lng,
-            @RequestParam(required = false, defaultValue = "10") double radiusKm) {
+            @Parameter(description = "Centre latitude",  required = true) @RequestParam double lat,
+            @Parameter(description = "Centre longitude", required = true) @RequestParam double lng,
+            @Parameter(description = "Radius in km — default 10") @RequestParam(required = false, defaultValue = "10") double radiusKm) {
 
         if (radiusKm <= 0) {
             radiusKm = 10;

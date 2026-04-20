@@ -1,34 +1,78 @@
-# ===== Next.js / Node.js =====
-node_modules/
-.next/
-out/
-dist/
-build/
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# ===== Spring Boot / Maven =====
+# ─── Java / Spring Boot ──────────────────────────────────────────────────────
 target/
 *.class
 *.jar
 *.war
 *.ear
 *.nar
-*.zip
-*.tar.gz
-*.rar
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+hs_err_pid*
+spring-shell.log
 
-# ===== IDE =====
+# ─── Maven ────────────────────────────────────────────────────────────────────
+.mvn/timing.properties
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+
+# ─── Node.js / Next.js ────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+dist/
+build/
+.pnp
+.pnp.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm
+
+# ─── Android ──────────────────────────────────────────────────────────────────
+*.apk
+*.aab
+*.ap_
+*.dex
+.gradle/
+local.properties
+starto-android/local.properties
+starto-android/.gradle/
+starto-android/app/build/
+starto-android/build/
+starto-android/.idea/
+starto-android/captures/
+starto-android/.externalNativeBuild/
+starto-android/.cxx/
+*.keystore
+keystore.jks
+google-services.json
+
+# ─── Firebase ─────────────────────────────────────────────────────────────────
+firebase-service-account.json
+.firebase/
+.firebaserc
+firebase-debug.log
+
+# ─── Environment / Secrets ────────────────────────────────────────────────────
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+*.pem
+private_key.pem
+*.p12
+*.jks
+application-secrets.properties
+application-local.properties
+
+# ─── IDE ──────────────────────────────────────────────────────────────────────
 .idea/
 *.iws
 *.iml
@@ -39,37 +83,20 @@ target/
 *.njsproj
 *.sln
 *.sw?
+*.code-workspace
+.project
+.classpath
+.settings/
 
-# ===== OS =====
+# ─── OS ───────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 desktop.ini
+ehthumbs.db
 
-# ===== Logs =====
+# ─── Logs ─────────────────────────────────────────────────────────────────────
 logs/
 *.log
-
-# Fix #8: Android local dev config (API_BASE_URL, signing keys) — never commit
-local.properties
-starto-android/local.properties
-keystore.jks
-*.keystore
-
-# Fix #4: application secrets
-application-secrets.properties
-application-local.properties
-*.p12
-*.jks
-
-# Fix #4: private key files must NEVER be committed.
-# The committed private_key.pem MUST be rotated immediately.
-*.pem
-private_key.pem
-
-# ===== Firebase =====
-firebase-service-account.json
-
-# ===== Scratch / temp =====
 temp_remote_repo/
 temp_strategy/
 build-verify*.log

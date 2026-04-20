@@ -1,95 +1,80 @@
-# Starto V2 - Local Development Guide
+# Starto V2
 
-Welcome to the Starto V2 ecosystem. This guide provides instructions on how to set up and run the entire platform locally.
+Real-time startup ecosystem platform. Founders, investors, and mentors post Signals, connect, and collaborate.
 
-## Project Structure
-- `/starto-api`: Spring Boot 3.3.x Backend (Java 21)
-- `/starto-web`: Next.js 14 Frontend (React)
-- `/starto-android`: Kotlin Jetpack Compose Mobile App
+**Stack:** Spring Boot 3.3 · Next.js 14 · Android (Jetpack Compose) · PostgreSQL+PostGIS · Redis · Firebase Auth
 
 ---
 
-## 🏗️ 1. Backend Setup (Spring Boot)
+## Prerequisites
 
-### Prerequisites
-- JDK 21
-- Maven
-- PostgreSQL (with PostGIS extension)
-- Redis
-
-### Steps
-1. **Database**: 
-   - Create a database named `starto`.
-   - Run the content of `schema.sql` (in the root) to create tables and extensions.
-2. **Environment Variables**:
-   - Create an `application-local.yml` or set the following in your environment:
-     - `SPRING_DATASOURCE_URL`: `jdbc:postgresql://localhost:5432/starto`
-     - `SPRING_DATASOURCE_USERNAME`: your_user
-     - `SPRING_DATASOURCE_PASSWORD`: your_password
-     - `SPRING_DATA_REDIS_URL`: `redis://localhost:6379`
-     - `FIREBASE_CONFIG_PATH`: Path to your Firebase service account JSON.
-3. **Run**:
-   ```powershell
-   # Use the automated runner (replaces mvn)
-   .\run-backend.ps1
-   ```
-   The API will be available at `http://localhost:8080`.
+- Java 21 (JDK), Maven 3.9+
+- Node.js 20+, npm 9+
+- PostgreSQL 15+ with PostGIS extension
+- Redis 7+
+- Firebase project (Auth + Firestore enabled)
+- Android Studio Hedgehog+ (for Android)
 
 ---
 
-## 🌐 2. Web Frontend Setup (Next.js)
+## Environment Variables
 
-### Prerequisites
-- Node.js 20.x
-- npm or yarn
+Copy `.env.example` to `.env` and fill in all values:
 
-### Steps
-1. **Install Dependencies**:
-   ```bash
-   cd starto-web
-   npm install
-   ```
-2. **Environment Variables**:
-   - Create a `.env.local` file:
-     ```env
-     NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-     NEXT_PUBLIC_FIREBASE_API_KEY=your_key
-     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
-     ```
-3. **Run**:
-   ```bash
-   npm run dev
-   ```
-   The web app will be available at `http://localhost:3000`.
+```bash
+cp .env.example .env
+```
+
+Key variables required before first run:
+
+| Variable | Description |
+|---|---|
+| `DB_URL` | PostgreSQL JDBC URL |
+| `FIREBASE_SERVICE_ACCOUNT_B64` | Base64-encoded Firebase service account JSON |
+| `GEMINI_API_KEY` | Google Gemini AI key |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay payment keys |
+| `NEXT_PUBLIC_API_BASE_URL` | Backend URL for the frontend |
 
 ---
 
-## 📱 3. Mobile Setup (Android)
+## Run Backend
 
-### Prerequisites
-- Android Studio (Iguana or newer)
-- Android SDK 34+
-
-### Steps
-1. **Open Project**:
-   - Open the `starto-android` folder in Android Studio.
-2. **Sync Gradle**:
-   - Let Android Studio perform the initial Gradle sync.
-3. **Configuration**:
-   - Update `Constants.kt` (or similar) to point to your local IP for the API (e.g., `http://10.0.2.2:8080` for emulator).
-4. **Run**:
-   - Select an emulator or physical device.
-   - Click the "Run" button (Green play icon).
+```bash
+cd starto-api
+# First run: initialise schema
+psql -U postgres -d starto -f ../schema.sql
+# Start
+../run-backend.ps1          # Windows
+mvn spring-boot:run         # Mac/Linux (set env vars first)
+# Runs on http://localhost:8080
+```
 
 ---
 
-## 🛠️ Common Commands
+## Run Frontend
 
-- **Build Backend**: `mvn clean install`
-- **Build Web**: `npm run build`
-- **Lint Web**: `npm run lint`
+```bash
+cd starto-web
+cp ../.env.example .env.local   # fill in NEXT_PUBLIC_* values
+npm install
+npm run dev
+# Runs on http://localhost:3000
+```
 
 ---
 
-## 🛡️ Security Note
-Ensure your `google-services.json` (Android) and `firebase-config.js` (Web) are correctly populated with your Firebase project credentials to enable authentication.
+## Run with Docker Compose (recommended)
+
+```bash
+cp .env.example .env   # fill in all values
+docker compose up -d --build
+```
+
+---
+
+## Android
+
+1. Open `starto-android/` in Android Studio.
+2. Add `API_BASE_URL=http://10.0.2.2:8080` to `starto-android/local.properties`.
+3. Add `google-services.json` to `starto-android/app/` (from Firebase console).
+4. Run on emulator or device.
