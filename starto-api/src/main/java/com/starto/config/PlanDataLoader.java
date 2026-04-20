@@ -16,6 +16,7 @@ public class PlanDataLoader implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        createIfNotExists(Plan.TRIAL,2900, 7, "ONE_TIME");
         createIfNotExists(Plan.SPRINT, 5900, 7, "ONE_TIME");
         createIfNotExists(Plan.BOOST, 9900, 15, "ONE_TIME");
         createIfNotExists(Plan.PRO, 14900, 30, "RECURRING");
@@ -33,23 +34,24 @@ public class PlanDataLoader implements CommandLineRunner {
             p.setPricePaise(price);
             p.setDurationDays(days);
             p.setBillingType(Enum.valueOf(
-                    com.starto.enums.BillingType.class, type));
+                com.starto.enums.BillingType.class, type
+            ));
 
-            String razorpayPlanId = switch (code) {
-                case SPRINT -> razorpayPlanProperties.getPlans().getSprint();
-                case BOOST -> razorpayPlanProperties.getPlans().getBoost();
-                case PRO -> razorpayPlanProperties.getPlans().getPro();
-                case CAPTAIN -> razorpayPlanProperties.getPlans().getCaptain();
-                case CAPTAIN_PRO -> razorpayPlanProperties.getPlans().getCaptainPro();
-                case PRO_PLUS -> razorpayPlanProperties.getPlans().getProPlus();
-                case GROWTH -> razorpayPlanProperties.getPlans().getGrowth();
-                case ANNUAL -> razorpayPlanProperties.getPlans().getAnnual();
-                default -> null;
-            };
+             String razorpayPlanId = switch(code) {
+            case SPRINT -> razorpayPlanProperties.getPlans().getSprint();
+            case BOOST -> razorpayPlanProperties.getPlans().getBoost();
+            case PRO -> razorpayPlanProperties.getPlans().getPro();
+            case CAPTAIN -> razorpayPlanProperties.getPlans().getCaptain();
+            case CAPTAIN_PRO -> razorpayPlanProperties.getPlans().getCaptainPro();
+            case PRO_PLUS -> razorpayPlanProperties.getPlans().getProPlus();
+            case GROWTH -> razorpayPlanProperties.getPlans().getGrowth();
+            case ANNUAL -> razorpayPlanProperties.getPlans().getAnnual();
+            default -> null;
+        };
 
-            p.setRazorpayPlanId(razorpayPlanId);
+        p.setRazorpayPlanId(razorpayPlanId);
 
-            return planRepository.save(p);
+        return planRepository.save(p);
         });
     }
 }

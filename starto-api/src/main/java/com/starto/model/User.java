@@ -14,22 +14,24 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
-@Table(name = "users", indexes = {
+@Table(name = "users",
+    indexes = {
         @Index(name = "idx_users_firebase_uid", columnList = "firebase_uid"),
         @Index(name = "idx_users_username", columnList = "username"),
         @Index(name = "idx_users_plan", columnList = "plan"),
         @Index(name = "idx_users_plan_expires_at", columnList = "plan_expires_at")
-})
+    }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User implements Serializable {
+public class User implements Serializable{
 
-    private static final long serialVersionUID = 1L;
-
+     private static final long serialVersionUID = 1L;
+     
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
@@ -84,14 +86,14 @@ public class User implements Serializable {
     @Column(name = "linkedin_url", columnDefinition = "TEXT")
     private String linkedinUrl;
 
-    @Column(name = "twitter_url", columnDefinition = "TEXT")
-    private String twitterUrl;
+@Column(name = "twitter_url", columnDefinition = "TEXT")
+private String twitterUrl;
 
-    @Column(name = "github_url", columnDefinition = "TEXT")
-    private String githubUrl;
+@Column(name = "github_url", columnDefinition = "TEXT")
+private String githubUrl;
 
     @Builder.Default
-    @Convert(converter = com.starto.config.PlanConverter.class)
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Plan plan = Plan.EXPLORER;
 
@@ -123,7 +125,7 @@ public class User implements Serializable {
     private Boolean isVerified = false;
 
     @Column(name = "is_active")
-    @Builder.Default
+     @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "fcm_token", columnDefinition = "TEXT")
@@ -138,78 +140,78 @@ public class User implements Serializable {
     private OffsetDateTime updatedAt;
 
     // public UUID getId() {
-    // return id;
+    //     return id;
     // }
 
     // public void setId(UUID id) {
-    // this.id = id;
+    //     this.id = id;
     // }
 
     // public String getFirebaseUid() {
-    // return firebaseUid;
+    //     return firebaseUid;
     // }
 
     // public void setFirebaseUid(String firebaseUid) {
-    // this.firebaseUid = firebaseUid;
+    //     this.firebaseUid = firebaseUid;
     // }
 
     // public String getUsername() {
-    // return username;
+    //     return username;
     // }
 
     // public void setUsername(String username) {
-    // this.username = username;
+    //     this.username = username;
     // }
 
     // public String getName() {
-    // return name;
+    //     return name;
     // }
 
     // public void setName(String name) {
-    // this.name = name;
+    //     this.name = name;
     // }
 
     // public String getEmail() {
-    // return email;
+    //     return email;
     // }
 
     // public void setEmail(String email) {
-    // this.email = email;
+    //     this.email = email;
     // }
 
     // public String getBio() {
-    // return bio;
+    //     return bio;
     // }
 
     // public void setBio(String bio) {
-    // this.bio = bio;
+    //     this.bio = bio;
     // }
 
     // public String getIndustry() {
-    // return industry;
+    //     return industry;
     // }
 
     // public void setIndustry(String industry) {
-    // this.industry = industry;
+    //     this.industry = industry;
     // }
 
     // public String getCity() {
-    // return city;
+    //     return city;
     // }
 
     // public void setCity(String city) {
-    // this.city = city;
+    //     this.city = city;
     // }
 
     // public void setLastSeen(OffsetDateTime lastSeen) {
-    // this.lastSeen = lastSeen;
+    //     this.lastSeen = lastSeen;
     // }
 
     // public void setIsOnline(Boolean isOnline) {
-    // this.isOnline = isOnline;
+    //     this.isOnline = isOnline;
     // }
 
     // public void setUpdatedAt(OffsetDateTime updatedAt) {
-    // this.updatedAt = updatedAt;
+    //     this.updatedAt = updatedAt;
     // }
 }

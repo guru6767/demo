@@ -25,17 +25,15 @@ public class ReviewService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "reviewCache", key = "#reviewedUserId"),
-            @CacheEvict(value = "reviewCache", key = "#reviewedUserId + '-summary'")
+        @CacheEvict(value = "reviewCache", key = "#reviewedUserId"),
+        @CacheEvict(value = "reviewCache", key = "#reviewedUserId + '-summary'")
     })
     public Review addReview(User reviewer, UUID reviewedUserId, int rating, String comment) {
         if (reviewer.getId().equals(reviewedUserId)) {
             throw new RuntimeException("You cannot review yourself");
         }
         reviewRepository.findByReviewerIdAndReviewedId(reviewer.getId(), reviewedUserId)
-                .ifPresent(r -> {
-                    throw new RuntimeException("You already reviewed this user");
-                });
+                .ifPresent(r -> { throw new RuntimeException("You already reviewed this user"); });
         if (rating < 1 || rating > 5) {
             throw new RuntimeException("Rating must be between 1 and 5");
         }

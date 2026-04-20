@@ -5,89 +5,91 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 
 import java.util.List;
-import java.time.OffsetDateTime;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import java.time.OffsetDateTime; 
+import org.springframework.data.jpa.repository.Query;          
+import org.springframework.data.repository.query.Param; 
 import java.util.UUID;
 
 public interface SignalRepository extends JpaRepository<Signal, UUID> {
-        List<Signal> findByType(String type);
+    List<Signal> findByType(String type);
+    List<Signal> findByStatus(String status);
+    List<Signal> findByUserId(UUID userId);
 
-        List<Signal> findByStatus(String status);
+    // city — partial, case-insensitive
+    @Query("SELECT s FROM Signal s WHERE LOWER(s.city) LIKE LOWER(CONCAT('%', :city, '%'))")
+    List<Signal> findByCity(@Param("city") String city);
 
-        List<Signal> findByStatusIn(List<String> statuses);
+    // seeking — partial, case-insensitive
+    @Query("SELECT s FROM Signal s WHERE LOWER(s.seeking) LIKE LOWER(CONCAT('%', :seeking, '%'))")
+    List<Signal> findBySeeking(@Param("seeking") String seeking);
 
-        List<Signal> findByUserId(UUID userId);
 
-        // city — partial, case-insensitive
-        @Query("SELECT s FROM Signal s WHERE LOWER(s.city) LIKE LOWER(CONCAT('%', :city, '%'))")
-        List<Signal> findByCity(@Param("city") String city);
+    long countByUserId(UUID userId);
 
-        // seeking — partial, case-insensitive
-        @Query("SELECT s FROM Signal s WHERE LOWER(s.seeking) LIKE LOWER(CONCAT('%', :seeking, '%'))")
-        List<Signal> findBySeeking(@Param("seeking") String seeking);
+    // seeking + city — both partial, case-insensitive
+    @Query("""
+        SELECT s FROM Signal s 
+        WHERE LOWER(s.seeking) LIKE LOWER(CONCAT('%', :seeking, '%'))
+        AND LOWER(s.city) LIKE LOWER(CONCAT('%', :city, '%'))
+        """)
+    List<Signal> findBySeekingAndCity(@Param("seeking") String seeking, @Param("city") String city);
 
-        long countByUserId(UUID userId);
+    // username — partial, case-insensitive
+    @Query("""
+        SELECT s FROM Signal s 
+        JOIN s.user u 
+        WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :username, '%'))
+        AND s.status = 'open'
+        """)
+    List<Signal> findByUsername(@Param("username") String username);
 
-        // seeking + city — both partial, case-insensitive
-        @Query("""
-                        SELECT s FROM Signal s
-                        WHERE LOWER(s.seeking) LIKE LOWER(CONCAT('%', :seeking, '%'))
-                        AND LOWER(s.city) LIKE LOWER(CONCAT('%', :city, '%'))
-                        """)
-        List<Signal> findBySeekingAndCity(@Param("seeking") String seeking, @Param("city") String city);
+    // username + seeking — both partial, case-insensitive
+    @Query("""
+        SELECT s FROM Signal s 
+        JOIN s.user u 
+        WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :username, '%'))
+        AND LOWER(s.seeking) LIKE LOWER(CONCAT('%', :seeking, '%'))
+        AND s.status = 'open'
+        """)
+    List<Signal> findByUsernameAndSeeking(
+        @Param("username") String username,
+        @Param("seeking") String seeking
+    );
 
-        // username — partial, case-insensitive
-        @Query("""
-                        SELECT s FROM Signal s
-                        JOIN s.user u
-                        WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :username, '%'))
-                        AND s.status = 'open'
-                        """)
-        List<Signal> findByUsername(@Param("username") String username);
+    // keeping these in case used elsewhere
+    List<Signal> findBySeekingAndStatus(String seeking, String status);
+    List<Signal> findBySeekingAndCityAndStatus(String seeking, String city, String status);
 
-        // username + seeking — both partial, case-insensitive
-        @Query("""
-                        SELECT s FROM Signal s
-                        JOIN s.user u
-                        WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :username, '%'))
-                        AND LOWER(s.seeking) LIKE LOWER(CONCAT('%', :seeking, '%'))
-                        AND s.status = 'open'
-                        """)
-        List<Signal> findByUsernameAndSeeking(
-                        @Param("username") String username,
-                        @Param("seeking") String seeking);
+// fuzzy search by username, limit 2 per user
+@Query("""
+    SELECT s FROM Signal s
+    JOIN s.user u
+    WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :username, '%'))
+    AND s.status = 'open'
+    ORDER BY s.user.id, s.createdAt DESC
+    """)
+List<Signal> findByUsernameLike(@Param("username") String username);
 
-        // keeping these in case used elsewhere
-        List<Signal> findBySeekingAndStatus(String seeking, String status);
+@Modifying
+@Query("UPDATE Signal s SET s.status = 'expired' WHERE s.status = 'open' AND s.expiresAt < :now")
+void expireOldSignals(@Param("now") OffsetDateTime now);
 
-        List<Signal> findBySeekingAndCityAndStatus(String seeking, String city, String status);
+    // bounding-box search by geo coords
+    List<Signal> findByStatusAndLatBetweenAndLngBetween(String status, java.math.BigDecimal latMin, java.math.BigDecimal latMax, java.math.BigDecimal lngMin, java.math.BigDecimal lngMax);
 
-        // fuzzy search by username, limit 2 per user
-        @Query("""
-                        SELECT s FROM Signal s
-                        JOIN s.user u
-                        WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :username, '%'))
-                        AND s.status = 'open'
-                        ORDER BY s.user.id, s.createdAt DESC
-                        """)
-        List<Signal> findByUsernameLike(@Param("username") String username);
+    List<Signal> findByUserIdAndCategoryIgnoreCase(UUID userId, String category);
 
-        @Modifying
-        @Query("UPDATE Signal s SET s.status = 'expired' WHERE s.status = 'open' AND s.expiresAt < :now")
-        void expireOldSignals(@Param("now") OffsetDateTime now);
+    List<Signal> findByUserIdOrderByCreatedAtDesc(UUID userId);
 
-        // bounding-box search by geo coords
-        List<Signal> findByStatusInAndLatBetweenAndLngBetween(List<String> statuses, java.math.BigDecimal latMin,
-                        java.math.BigDecimal latMax, java.math.BigDecimal lngMin, java.math.BigDecimal lngMax);
+    List<Signal> findByStatusOrderByCreatedAtDesc(String status);
 
-        @Query("""
-                        SELECT s FROM Signal s
-                        LEFT JOIN s.user u
-                        WHERE LOWER(s.title) LIKE LOWER(CONCAT('%', :query, '%'))
-                        OR LOWER(s.description) LIKE LOWER(CONCAT('%', :query, '%'))
-                        OR LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%'))
-                        OR LOWER(u.name) LIKE LOWER(CONCAT('%', :query, '%'))
-                        """)
-        List<Signal> findByTitleDescriptionOrOwner(@Param("query") String query);
+    @Query("""
+        SELECT s FROM Signal s
+        JOIN s.user u
+        WHERE LOWER(s.title) LIKE LOWER(CONCAT('%', :query, '%'))
+           OR LOWER(s.description) LIKE LOWER(CONCAT('%', :query, '%'))
+           OR LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%'))
+        """)
+    List<Signal> findByTitleDescriptionOrOwner(@Param("query") String query);
 }
+

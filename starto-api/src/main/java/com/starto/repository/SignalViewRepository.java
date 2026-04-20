@@ -13,13 +13,13 @@ public interface SignalViewRepository extends JpaRepository<SignalView, UUID> {
     long countBySignalId(UUID signalId);
 
     // views grouped by day
-    @Query("""
-            SELECT DATE(sv.viewedAt), COUNT(sv)
-            FROM SignalView sv
-            WHERE sv.signalId = :signalId
-            GROUP BY DATE(sv.viewedAt)
-            ORDER BY DATE(sv.viewedAt)
-            """)
+   @Query("""
+        SELECT DATE(sv.viewedAt), COUNT(sv)
+        FROM SignalView sv
+        WHERE sv.signalId = :signalId
+        GROUP BY DATE(sv.viewedAt)
+        ORDER BY DATE(sv.viewedAt)
+        """)
     List<Object[]> findViewsGroupedByDay(UUID signalId);
 
     boolean existsBySignalIdAndViewerUserId(UUID signalId, UUID viewerUserId);

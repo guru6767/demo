@@ -14,8 +14,9 @@ public interface OfferRepository extends JpaRepository<Offer, UUID> {
     // check if talent already sent offer to this signal
     @Query("SELECT o FROM Offer o WHERE o.requester.id = :requesterId AND o.signal.id = :signalId")
     Optional<Offer> findByRequesterIdAndSignalId(
-            @Param("requesterId") UUID requesterId,
-            @Param("signalId") UUID signalId);
+        @Param("requesterId") UUID requesterId,
+        @Param("signalId") UUID signalId
+    );
 
     // founder sees pending offers
     @Query("SELECT o FROM Offer o WHERE o.receiver.id = :receiverId AND o.status = 'pending'")
@@ -29,8 +30,10 @@ public interface OfferRepository extends JpaRepository<Offer, UUID> {
     @Query("SELECT o FROM Offer o WHERE o.receiver.id = :receiverId AND o.status = 'accepted'")
     List<Offer> findAcceptedByReceiverId(@Param("receiverId") UUID receiverId);
 
-    @Query("SELECT o FROM Offer o WHERE o.receiver.id = :receiverId ORDER BY o.createdAt DESC")
-    List<Offer> findAllByReceiverId(@Param("receiverId") UUID receiverId);
 
-    int countByRequesterId(UUID requesterId);
+    @Query("SELECT o FROM Offer o WHERE o.receiver.id = :receiverId ORDER BY o.createdAt DESC")
+List<Offer> findAllByReceiverId(@Param("receiverId") UUID receiverId);
+
+
+int countByRequesterId(UUID requesterId);
 }

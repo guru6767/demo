@@ -8,6 +8,7 @@ import com.starto.service.UserService;
 import lombok.RequiredArgsConstructor;
 import com.starto.service.WebSocketService;
 import com.starto.dto.SignalRequestDTO;
+import com.starto.dto.NearbyUserDTO;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,94 +28,97 @@ public class SignalController {
     private final UserService userService;
     private final WebSocketService webSocketService;
 
-    // create the signal
-    @PostMapping
-    public ResponseEntity<?> createSignal(
-            Authentication authentication,
-            @RequestBody SignalRequestDTO dto) {
+    //create the signal
+ @PostMapping
+public ResponseEntity<?> createSignal(
+        Authentication authentication,
+        @RequestBody SignalRequestDTO dto) {
 
-        if (authentication == null || authentication.getPrincipal() == null)
-            return ResponseEntity.status(401).build();
+    if (authentication == null || authentication.getPrincipal() == null)
+        return ResponseEntity.status(401).build();
 
-        String firebaseUid = authentication.getPrincipal().toString();
+    String firebaseUid = authentication.getPrincipal().toString();
 
-        return userService.getUserByFirebaseUid(firebaseUid)
-                .map(user -> {
-                    try {
-                        signalService.validateSignalCreation(user);
-                    } catch (RuntimeException ex) {
-                        return ResponseEntity.status(403).body(Map.of(
-                                "error", ex.getMessage(),
-                                "upgradeUrl", "/api/subscriptions/upgrade"));
-                    }
+    return userService.getUserByFirebaseUid(firebaseUid)
+            .map(user -> {
+                try {
+                    signalService.validateSignalCreation(user);
+                } catch (RuntimeException ex) {
+                    return ResponseEntity.status(403).body(Map.of(
+                            "error", ex.getMessage(),
+                            "upgradeUrl", "/api/subscriptions/upgrade"
+                    ));
+                }
 
-                    // map DTO to Signal
-                    Signal signal = Signal.builder()
-                            .type(dto.getType())
-                            .title(dto.getTitle())
-                            .description(dto.getDescription())
-                            .stage(dto.getStage())
-                            .city(dto.getCity())
-                            .state(dto.getState())
-                            .category(dto.getCategory())
-                            .seeking(dto.getSeeking())
-                            .compensation(dto.getCompensation())
-                            .visibility(dto.getVisibility() != null ? dto.getVisibility() : "global")
-                            .signalStrength(dto.getSignalStrength() != null ? dto.getSignalStrength() : "normal")
-                            .timelineDays(dto.getTimelineDays())
-                            .lat(dto.getLat())
-                            .lng(dto.getLng())
-                            .user(user)
-                            .build();
+                 // map DTO to Signal
+                Signal signal = Signal.builder()
+                        .type(dto.getType())
+                        .title(dto.getTitle())
+                        .description(dto.getDescription())
+                        .stage(dto.getStage())
+                        .city(dto.getCity())
+                        .state(dto.getState())
+                        .category(dto.getCategory())
+                        .seeking(dto.getSeeking())
+                        .compensation(dto.getCompensation())
+                        .visibility(dto.getVisibility() != null ? dto.getVisibility() : "global")
+                        .signalStrength(dto.getSignalStrength() != null ? dto.getSignalStrength() : "normal")
+                        .timelineDays(dto.getTimelineDays())
+                        .lat(dto.getLat())
+                        .lng(dto.getLng())
+                        .user(user)
+                        .build();
 
-                    signal.setUser(user);
+                signal.setUser(user);
 
-                    // SAVE
-                    Signal saved = signalService.createSignal(signal);
+                //  SAVE
+                Signal saved = signalService.createSignal(signal);
 
-                    // WEBSOCKET
-                    webSocketService.send("/topic/signals", saved);
+                //  WEBSOCKET
+                webSocketService.send("/topic/signals", saved);
 
-                    return ResponseEntity.ok(saved);
-                })
-                .orElse(ResponseEntity.status(401).build());
+                return ResponseEntity.ok(saved);
+            })
+            .orElse(ResponseEntity.status(401).build());
+}
+        
+   
+    //Get all the signals based on filter
+    @GetMapping
+    public ResponseEntity<List<Signal>> getSignals( @RequestParam(required = false) String city,
+        @RequestParam(required = false) String seeking,
+        @RequestParam(required = false) String username) {
+
+    // username + seeking
+    if (username != null && seeking != null) {
+        return ResponseEntity.ok(signalService.getSignalsByUsernameAndSeeking(username, seeking));
     }
 
-    // Get all the signals based on filter
-    @GetMapping
-    public ResponseEntity<List<Signal>> getSignals(@RequestParam(required = false) String city,
-            @RequestParam(required = false) String seeking,
-            @RequestParam(required = false) String username) {
+    // username only
+    if (username != null) {
+    return ResponseEntity.ok(signalService.searchSignalsByUsername(username));  
+}
 
-        // username + seeking
-        if (username != null && seeking != null) {
-            return ResponseEntity.ok(signalService.getSignalsByUsernameAndSeeking(username, seeking));
-        }
+    // seeking + city
+    if (seeking != null && city != null) {
+        return ResponseEntity.ok(signalService.getSignalsBySeekingAndCity(seeking, city));
+    }
 
-        // username only
-        if (username != null) {
-            return ResponseEntity.ok(signalService.searchSignalsByUsername(username));
-        }
+    // seeking only
+    if (seeking != null) {
+        return ResponseEntity.ok(signalService.getSignalsBySeeking(seeking));
+    }
 
-        // seeking + city
-        if (seeking != null && city != null) {
-            return ResponseEntity.ok(signalService.getSignalsBySeekingAndCity(seeking, city));
-        }
-
-        // seeking only
-        if (seeking != null) {
-            return ResponseEntity.ok(signalService.getSignalsBySeeking(seeking));
-        }
-
-        // city only
-        if (city != null) {
-            return ResponseEntity.ok(signalService.getSignalsByCity(city));
-        }
+    // city only
+    if (city != null) {
+        return ResponseEntity.ok(signalService.getSignalsByCity(city));
+    }
         return ResponseEntity.ok(signalService.getActiveSignals());
     }
 
-    // get the signal based on ID
-    @GetMapping("/{id}")
+
+    //get the signal based on ID
+   @GetMapping("/{id}")
     public ResponseEntity<?> getPost(@PathVariable UUID id, Authentication authentication) {
 
         UUID viewerUserId = null;
@@ -125,14 +129,14 @@ public class SignalController {
                     .orElse(null);
         }
 
-        // Try Signal
+        //  Try Signal
         Signal signal = signalService.getSignalByIdSafe(id);
         if (signal != null) {
             signalService.trackView(id, viewerUserId);
             return ResponseEntity.ok(signal);
         }
 
-        // Try Space
+        //  Try Space
         NearbySpace space = signalService.getNearbySpaceById(id);
         if (space != null) {
             return ResponseEntity.ok(space);
@@ -141,115 +145,136 @@ public class SignalController {
         return ResponseEntity.status(404).body(Map.of("error", "Post not found"));
     }
 
-    // get all my signals
-    @GetMapping("/mine")
-    public ResponseEntity<?> getMyData(Authentication authentication) {
+      //get all my signals
+ @GetMapping("/my")
+public ResponseEntity<?> getMyData(
+        Authentication authentication,
+        @RequestParam(required = false) String category) {
 
-        if (authentication == null || authentication.getPrincipal() == null) {
-            return ResponseEntity.status(401).build();
-        }
-
-        String firebaseUid = authentication.getPrincipal().toString();
-
-        return userService.getUserByFirebaseUid(firebaseUid)
-                .map(user -> {
-                    List<Signal> signals = signalService.getSignalsByUser(user.getId());
-                    return ResponseEntity.ok(signals);
-                })
-                .orElse(ResponseEntity.status(401).build());
+    if (authentication == null || authentication.getPrincipal() == null) {
+        return ResponseEntity.status(401).build();
     }
+
+    String firebaseUid = authentication.getPrincipal().toString();
+
+    return userService.getUserByFirebaseUid(firebaseUid)
+            .map(user -> {
+
+                List<Signal> signals;
+
+                //  FILTER LOGIC
+                if (category != null) {
+                    signals = signalService.getSignalsByUserAndCategory(
+                            user.getId(), category.toLowerCase()
+                    );
+                } else {
+                    signals = signalService.getSignalsByUser(user.getId());
+                }
+
+                List<NearbySpace> spaces = signalService.getSpacesByUser(user.getId());
+
+                return ResponseEntity.ok(Map.of(
+                        "signals", signals,
+                        "spaces", spaces
+                ));
+            })
+            .orElse(ResponseEntity.status(401).build());
+}
+
 
     // edit the signal
-    @PutMapping("/{id}")
-    public ResponseEntity<?> updateSignal(
-            Authentication authentication,
-            @PathVariable UUID id,
-            @RequestBody Signal updatedSignal) {
+   @PutMapping("/{id}")
+public ResponseEntity<?> updateSignal(
+        Authentication authentication,
+        @PathVariable UUID id,
+        @RequestBody Signal updatedSignal) {
 
-        if (authentication == null || authentication.getPrincipal() == null)
-            return ResponseEntity.status(401).build();
+    if (authentication == null || authentication.getPrincipal() == null)
+        return ResponseEntity.status(401).build();
 
-        String firebaseUid = authentication.getPrincipal().toString();
+    String firebaseUid = authentication.getPrincipal().toString();
 
-        return userService.getUserByFirebaseUid(firebaseUid)
-                .map(user -> {
-                    try {
-                        Object updated = signalService.updatePost(id, user, updatedSignal);
+    return userService.getUserByFirebaseUid(firebaseUid)
+            .map(user -> {
+                try {
+                    Object updated = signalService.updatePost(id, user, updatedSignal);
 
-                        // broadcast based on type
-                        if (updated instanceof Signal) {
-                            webSocketService.send("/topic/signals",
-                                    Map.of("type", "UPDATE", "data", updated));
-                        } else {
-                            webSocketService.send("/topic/spaces", updated);
-                        }
-
-                        return ResponseEntity.ok(updated);
-
-                    } catch (RuntimeException ex) {
-                        return ResponseEntity.status(403).body(ex.getMessage());
+                    //  broadcast based on type
+                    if (updated instanceof Signal) {
+                        webSocketService.send("/topic/signals",
+                                Map.of("type", "UPDATE", "data", updated));
+                    } else {
+                        webSocketService.send("/topic/spaces", updated);
                     }
-                })
-                .orElse(ResponseEntity.status(401).build());
-    }
+
+                    return ResponseEntity.ok(updated);
+
+                } catch (RuntimeException ex) {
+                    return ResponseEntity.status(403).body(ex.getMessage());
+                }
+            })
+            .orElse(ResponseEntity.status(401).build());
+}
 
     // delete the signal
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> deletePost(Authentication authentication, @PathVariable UUID id) {
+  @DeleteMapping("/{id}")
+public ResponseEntity<?> deletePost(Authentication authentication, @PathVariable UUID id) {
 
-        if (authentication == null || authentication.getPrincipal() == null)
-            return ResponseEntity.status(401).build();
+    if (authentication == null || authentication.getPrincipal() == null)
+        return ResponseEntity.status(401).build();
 
-        String firebaseUid = authentication.getPrincipal().toString();
+    String firebaseUid = authentication.getPrincipal().toString();
 
-        return userService.getUserByFirebaseUid(firebaseUid)
-                .map(user -> {
-                    try {
-                        String result = signalService.deletePost(id, user);
+    return userService.getUserByFirebaseUid(firebaseUid)
+            .map(user -> {
+                try {
+                    String result = signalService.deletePost(id, user);
 
-                        if (result.startsWith("Signal")) {
-                            webSocketService.send("/topic/signals",
-                                    Map.of("type", "DELETE", "signalId", id));
-                        } else {
-                            webSocketService.send("/topic/spaces",
-                                    Map.of("type", "DELETE", "spaceId", id));
-                        }
-
-                        return ResponseEntity.ok(result);
-
-                    } catch (RuntimeException ex) {
-                        return ResponseEntity.status(403).body(ex.getMessage());
+                    if (result.startsWith("Signal")) {
+                        webSocketService.send("/topic/signals",
+                                Map.of("type", "DELETE", "signalId", id));
+                    } else {
+                        webSocketService.send("/topic/spaces",
+                                Map.of("type", "DELETE", "spaceId", id));
                     }
-                })
-                .orElse(ResponseEntity.status(401).build());
-    }
+
+                    return ResponseEntity.ok(result);
+
+                } catch (RuntimeException ex) {
+                    return ResponseEntity.status(403).body(ex.getMessage());
+                }
+            })
+            .orElse(ResponseEntity.status(401).build());
+}
+
+
 
     // Add insights endpoint — owner only
-    @GetMapping("/{id}/insights")
-    public ResponseEntity<?> getInsights(
-            Authentication authentication,
-            @PathVariable UUID id) {
+@GetMapping("/{id}/insights")
+public ResponseEntity<?> getInsights(
+        Authentication authentication,
+        @PathVariable UUID id) {
 
-        if (authentication == null || authentication.getPrincipal() == null)
-            return ResponseEntity.status(401).build();
+    if (authentication == null || authentication.getPrincipal() == null)
+        return ResponseEntity.status(401).build();
 
-        String firebaseUid = authentication.getPrincipal().toString();
+    String firebaseUid = authentication.getPrincipal().toString();
 
-        return userService.getUserByFirebaseUid(firebaseUid)
-                .map(user -> {
-                    Signal signal = signalService.getSignalById(id);
+    return userService.getUserByFirebaseUid(firebaseUid)
+            .map(user -> {
+                Signal signal = signalService.getSignalById(id);
 
-                    // only owner can see insights
-                    if (!signal.getUserId().equals(user.getId())) {
-                        return ResponseEntity.status(403).body("Forbidden");
-                    }
+                // only owner can see insights
+                if (!signal.getUserId().equals(user.getId())) {
+                    return ResponseEntity.status(403).body("Forbidden");
+                }
 
-                    return ResponseEntity.ok(signalService.getInsights(id));
-                })
-                .orElse(ResponseEntity.status(401).build());
-    }
+                return ResponseEntity.ok(signalService.getInsights(id));
+            })
+            .orElse(ResponseEntity.status(401).build());
+}
 
-    // getting the nearBy data
+     //getting the nearBy data
     @GetMapping("/nearby")
     public ResponseEntity<?> getNearbyMapData(
             @RequestParam double lat,
@@ -262,25 +287,28 @@ public class SignalController {
 
         List<Signal> nearbySignals = signalService.getNearbySignals(lat, lng, radiusKm);
         List<NearbySpace> nearbySpaces = signalService.getNearbySpaces(lat, lng, radiusKm);
+        List<NearbyUserDTO> nearbyUsers = signalService.getNearbyUsers(lat, lng, radiusKm);
 
         return ResponseEntity.ok(Map.of(
                 "latitude", lat,
                 "longitude", lng,
                 "radiusKm", radiusKm,
                 "signals", nearbySignals,
-                "nearbySpaces", nearbySpaces));
+                "nearbySpaces", nearbySpaces,
+                "users", nearbyUsers
+        ));
     }
 
     @PostMapping("/spaces")
     public ResponseEntity<?> createNearbySpace(
             @RequestBody NearbySpace nearbySpace) {
         try {
-            NearbySpace created = signalService.createNearbySpace(nearbySpace);
+           NearbySpace created = signalService.createNearbySpace(nearbySpace);
 
-            // broadcast new space
-            webSocketService.send("/topic/spaces", created);
+//  broadcast new space
+           webSocketService.send("/topic/spaces", created);
 
-            return ResponseEntity.ok(created);
+             return ResponseEntity.ok(created);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         }
@@ -294,3 +322,4 @@ public class SignalController {
         return ResponseEntity.ok(signalService.getNearbySpaces(lat, lng, radiusKm));
     }
 }
+

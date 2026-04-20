@@ -9,6 +9,7 @@ import com.starto.repository.AiUsageRepository;
 import com.starto.service.explore.LocationService;
 import com.starto.service.manager.AIManager;
 
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -32,7 +33,10 @@ public class ExploreService {
     private final WebSocketService webSocketService;
     private final AiUsageRepository aiUsageRepository;
 
-    @Cacheable(value = "exploreCache", key = "#request.location + '-' + #request.industry + '-' + #request.stage")
+    @Cacheable(
+        value = "exploreCache",
+        key = "#request.location + '-' + #request.industry + '-' + #request.stage"
+    )
     public ExploreResponse analyzeMarket(ExploreRequest request, String userId) {
         System.out.println("ANALYZE MARKET CALLED");
         try {
@@ -79,14 +83,10 @@ public class ExploreService {
                 "Return this exact JSON structure:\n" +
                 "{\n" +
                 "  \"marketDemandScore\": <1-10>,\n" +
-                "  \"competitors\": [{\"name\": \"\", \"location\": \"\", \"stage\": \"\", \"description\": \"\", \"threatLevel\": \"LOW|MEDIUM|HIGH\"}],\n"
-                +
-                "  \"risks\": [{\"title\": \"\", \"description\": \"\", \"severity\": \"LOW|MEDIUM|HIGH\", \"mitigation\": \"\"}],\n"
-                +
-                "  \"budgetFeasibility\": {\"canBuild\": [\"item1\", \"item2\"], \"actualNeed\": [\"item1\", \"item2\"], \"verdict\": \"Feasible|Tight|Infeasible\"},\n"
-                +
-                "  \"governmentSchemes\": [{\"name\": \"\", \"body\": \"\", \"benefits\": \"\", \"eligibility\": \"\", \"applyUrl\": \"\"}],\n"
-                +
+                "  \"competitors\": [{\"name\": \"\", \"location\": \"\", \"stage\": \"\", \"description\": \"\", \"threatLevel\": \"LOW|MEDIUM|HIGH\"}],\n" +
+                "  \"risks\": [{\"title\": \"\", \"description\": \"\", \"severity\": \"LOW|MEDIUM|HIGH\", \"mitigation\": \"\"}],\n" +
+                "  \"budgetFeasibility\": {\"canBuild\": [\"item1\", \"item2\"], \"actualNeed\": [\"item1\", \"item2\"], \"verdict\": \"Feasible|Tight|Infeasible\"},\n" +
+                "  \"governmentSchemes\": [{\"name\": \"\", \"body\": \"\", \"benefits\": \"\", \"eligibility\": \"\", \"applyUrl\": \"\"}],\n" +
                 "  \"actionPlan\": [{\"range\": \"0-3 months\", \"tasks\": [\"task1\", \"task2\"]}]\n" +
                 "}";
     }
@@ -123,13 +123,12 @@ public class ExploreService {
 
             List<ExploreResponse.Competitor> competitors = data.has("competitors")
                     ? mapper.convertValue(data.get("competitors"),
-                            mapper.getTypeFactory().constructCollectionType(List.class,
-                                    ExploreResponse.Competitor.class))
+                        mapper.getTypeFactory().constructCollectionType(List.class, ExploreResponse.Competitor.class))
                     : List.of();
 
             List<ExploreResponse.Risk> risks = data.has("risks")
                     ? mapper.convertValue(data.get("risks"),
-                            mapper.getTypeFactory().constructCollectionType(List.class, ExploreResponse.Risk.class))
+                        mapper.getTypeFactory().constructCollectionType(List.class, ExploreResponse.Risk.class))
                     : List.of();
 
             ExploreResponse.BudgetFeasibility budgetFeasibility = null;
@@ -139,24 +138,22 @@ public class ExploreService {
                 budgetFeasibility.setVerdict(bf.has("verdict") ? bf.get("verdict").asText() : "Unknown");
                 budgetFeasibility.setCanBuild(bf.has("canBuild")
                         ? mapper.convertValue(bf.get("canBuild"),
-                                mapper.getTypeFactory().constructCollectionType(List.class, String.class))
+                            mapper.getTypeFactory().constructCollectionType(List.class, String.class))
                         : List.of());
                 budgetFeasibility.setActualNeed(bf.has("actualNeed")
                         ? mapper.convertValue(bf.get("actualNeed"),
-                                mapper.getTypeFactory().constructCollectionType(List.class, String.class))
+                            mapper.getTypeFactory().constructCollectionType(List.class, String.class))
                         : List.of());
             }
 
             List<ExploreResponse.GovernmentScheme> governmentSchemes = data.has("governmentSchemes")
                     ? mapper.convertValue(data.get("governmentSchemes"),
-                            mapper.getTypeFactory().constructCollectionType(List.class,
-                                    ExploreResponse.GovernmentScheme.class))
+                        mapper.getTypeFactory().constructCollectionType(List.class, ExploreResponse.GovernmentScheme.class))
                     : List.of();
 
             List<ExploreResponse.ActionPhase> actionPlan = data.has("actionPlan")
                     ? mapper.convertValue(data.get("actionPlan"),
-                            mapper.getTypeFactory().constructCollectionType(List.class,
-                                    ExploreResponse.ActionPhase.class))
+                        mapper.getTypeFactory().constructCollectionType(List.class, ExploreResponse.ActionPhase.class))
                     : List.of();
 
             return ExploreResponse.builder()
@@ -176,28 +173,29 @@ public class ExploreService {
     }
 
     public int getTodayUsage(UUID userId) {
-        return aiUsageRepository
-                .findByUserIdAndDate(userId, LocalDate.now())
-                .map(AiUsage::getUsedCount)
-                .orElse(0);
-    }
+    return aiUsageRepository
+            .findByUserIdAndDate(userId, LocalDate.now())
+            .map(AiUsage::getUsedCount)
+            .orElse(0);
+}
 
-    @Transactional
-    public void incrementUsage(UUID userId) {
+@Transactional
+public void incrementUsage(UUID userId) {
 
-        LocalDate today = LocalDate.now();
+    LocalDate today = LocalDate.now();
 
-        AiUsage usage = aiUsageRepository
-                .findByUserIdAndDate(userId, today)
-                .orElse(
-                        AiUsage.builder()
-                                .userId(userId)
-                                .date(today)
-                                .usedCount(0)
-                                .build());
+    AiUsage usage = aiUsageRepository
+            .findByUserIdAndDate(userId, today)
+            .orElse(
+                AiUsage.builder()
+                        .userId(userId)
+                        .date(today)
+                        .usedCount(0)
+                        .build()
+            );
 
-        usage.setUsedCount(usage.getUsedCount() + 1);
+    usage.setUsedCount(usage.getUsedCount() + 1);
 
-        aiUsageRepository.save(usage);
-    }
+    aiUsageRepository.save(usage);
+}
 }

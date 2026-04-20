@@ -15,16 +15,16 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class NearbySpace implements Serializable {
-    private static final long serialVersionUID = 1L;
-
+public class NearbySpace implements Serializable{
+        private static final long serialVersionUID = 1L;
+        
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+@JoinColumn(name = "user_id", nullable = false)
+private User user;
 
     @Column(nullable = false)
     private String name;

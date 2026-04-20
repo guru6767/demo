@@ -28,8 +28,7 @@ public class ReviewController {
             @PathVariable UUID userId,
             @RequestBody Map<String, Object> body) {
 
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
+        if (authentication == null) return ResponseEntity.status(401).build();
 
         int rating = (int) body.get("rating");
         String comment = (String) body.getOrDefault("comment", "");

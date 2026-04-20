@@ -31,13 +31,15 @@ public class SubscriptionReminderScheduler {
 
         // 3 days before expiry
         sendReminders(
-                userRepository.findUsersExpiringBetween(now.plusDays(2), now.plusDays(3)),
-                3);
+            userRepository.findUsersExpiringBetween(now.plusDays(2), now.plusDays(3)),
+            3
+        );
 
         // 1 day before expiry
         sendReminders(
-                userRepository.findUsersExpiringBetween(now, now.plusDays(1)),
-                1);
+            userRepository.findUsersExpiringBetween(now, now.plusDays(1)),
+            1
+        );
     }
 
     private void sendReminders(List<User> users, int daysLeft) {
@@ -47,18 +49,19 @@ public class SubscriptionReminderScheduler {
 
             // in-app + push notification
             notificationService.send(
-                    user.getId(),
-                    "PLAN_EXPIRY",
-                    "Plan expiring soon!",
-                    "Your " + user.getPlan().name() + " plan expires in " + daysLeft + " day(s). Upgrade to continue.",
-                    Map.of("daysLeft", daysLeft, "plan", user.getPlan().name()));
+                user.getId(),
+                "PLAN_EXPIRY",
+                "Plan expiring soon!",
+                "Your " + user.getPlan().name() + " plan expires in " + daysLeft + " day(s). Upgrade to continue.",
+                Map.of("daysLeft", daysLeft, "plan", user.getPlan().name())
+            );
 
             // email
             emailService.sendExpiryReminder(user, daysLeft);
         }
     }
 
-    @Scheduled(cron = "0 0 0 * * *")
+     @Scheduled(cron = "0 0 0 * * *")
     public void handleExpiredPlans() {
         OffsetDateTime now = OffsetDateTime.now();
         List<User> expiredUsers = userRepository.findExpiredUsers(now);
@@ -67,7 +70,7 @@ public class SubscriptionReminderScheduler {
 
         for (User user : expiredUsers) {
 
-            String expiredPlanName = user.getPlan().name(); // save before changing
+            String expiredPlanName = user.getPlan().name();  // save before changing
 
             // downgrade to EXPLORER
             user.setPlan(Plan.EXPLORER);
@@ -81,11 +84,12 @@ public class SubscriptionReminderScheduler {
 
             // in-app notification
             notificationService.send(
-                    user.getId(),
-                    "PLAN_EXPIRED",
-                    "Plan Expired",
-                    "Your " + expiredPlanName + " plan has expired. Upgrade to continue.",
-                    Map.of("plan", "EXPLORER", "expiredPlan", expiredPlanName));
+                user.getId(),
+                "PLAN_EXPIRED",
+                "Plan Expired",
+                "Your " + expiredPlanName + " plan has expired. Upgrade to continue.",
+                Map.of("plan", "EXPLORER", "expiredPlan", expiredPlanName)
+            );
         }
     }
 }

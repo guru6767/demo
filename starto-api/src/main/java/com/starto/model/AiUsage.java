@@ -8,10 +8,10 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "ai_usage", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "user_id", "date" })
-}, indexes = {
+        @UniqueConstraint(columnNames = {"user_id", "date"})
+},          indexes = {
         @Index(name = "idx_ai_usage_user_date", columnList = "user_id, date")
-})
+    })
 @Getter
 @Setter
 @NoArgsConstructor

@@ -26,110 +26,66 @@ public class ConnectionService {
     // SIGNAL BASED REQUEST
 
     @Transactional
-    public Connection sendRequest(User sender,
-            UUID receiverId,
-            UUID signalId,
-            String message) {
+public Connection sendRequest(User sender,
+                              UUID receiverId,
+                              UUID signalId,
+                              String message) {
 
-        User receiver;
+    User receiver;
 
-        // CASE 1: SIGNAL BASED REQUEST
-        if (signalId != null) {
+    // CASE 1: SIGNAL BASED REQUEST
+    if (signalId != null) {
 
-            Signal signal = signalRepository.findById(signalId)
-                    .orElseThrow(() -> new RuntimeException("Signal not found"));
+        Signal signal = signalRepository.findById(signalId)
+                .orElseThrow(() -> new RuntimeException("Signal not found"));
 
-            receiver = signal.getUser();
-        }
-
-        // CASE 2: PROFILE BASED REQUEST
-        else if (receiverId != null) {
-
-            receiver = userRepository.findById(receiverId)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-        }
-
-        // invalid request
-        else {
-            throw new RuntimeException("receiverId or signalId required");
-        }
-
-        // prevent self request
-        if (sender.getId().equals(receiver.getId())) {
-            throw new RuntimeException("Cannot send request to yourself");
-        }
-
-        // duplicate check
-        boolean exists = connectionRepository
-                .existsByRequester_IdAndReceiver_IdAndStatus(
-                        sender.getId(),
-                        receiver.getId(),
-                        "PENDING");
-
-        if (exists) {
-            throw new RuntimeException("Request already exists");
-        }
-
-        Connection connection = Connection.builder()
-                .requester(sender)
-                .receiver(receiver)
-                .signal(signalId != null
-                        ? signalRepository.findById(signalId).orElse(null)
-                        : null)
-                .message(message)
-                .status("PENDING")
-                .build();
-
-        return connectionRepository.save(connection);
+        receiver = signal.getUser();
     }
 
-    // PROFILE BASED REQUEST
+    // CASE 2: PROFILE BASED REQUEST
+    else if (receiverId != null) {
 
-    // @Transactional
-    // public Connection sendProfileRequest(User sender, UUID receiverId) {
+        receiver = userRepository.findById(receiverId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
 
-    // User receiver = userRepository.findById(receiverId)
-    // .orElseThrow(() -> new RuntimeException("User not found"));
+    //  invalid request
+    else {
+        throw new RuntimeException("receiverId or signalId required");
+    }
 
-    // // prevent self request
-    // if (sender.getId().equals(receiverId)) {
-    // throw new RuntimeException("Cannot connect with yourself");
-    // }
+    // prevent self request
+    if (sender.getId().equals(receiver.getId())) {
+        throw new RuntimeException("Cannot send request to yourself");
+    }
 
-    // // duplicate check
-    // connectionRepository.findByRequesterIdAndReceiverId(
-    // sender.getId(),
-    // receiverId
-    // ).ifPresent(c -> {
+    // duplicate check
+    boolean exists = connectionRepository
+            .existsByRequester_IdAndReceiver_IdAndStatus(
+                    sender.getId(),
+                    receiver.getId(),
+                    "PENDING"
+            );
 
-    // if ("PENDING".equalsIgnoreCase(c.getStatus())) {
-    // throw new RuntimeException("Request already pending");
-    // }
+    if (exists) {
+        throw new RuntimeException("Request already exists");
+    }
 
-    // if ("ACCEPTED".equalsIgnoreCase(c.getStatus())) {
-    // throw new RuntimeException("Already connected");
-    // }
-    // });
+    Connection connection = Connection.builder()
+            .requester(sender)
+            .receiver(receiver)
+            .signal(signalId != null
+                    ? signalRepository.findById(signalId).orElse(null)
+                    : null)
+            .message(message)
+            .status("PENDING")
+            .build();
 
-    // Connection request = Connection.builder()
-    // .requester(sender)
-    // .receiver(receiver)
-    // .signal(null)
-    // .message(null)
-    // .status("PENDING")
-    // .build();
+    return connectionRepository.save(connection);
+}
 
-    // notificationService.send(
-    // receiver.getId(),
-    // "CONNECTION_REQUEST",
-    // "New Connection Request",
-    // sender.getName() + " sent you a connection request",
-    // null
-    // );
-
-    // return connectionRepository.save(request);
-    // }
-
+   
+  
     // ACCEPT REQUEST
 
     @Transactional
@@ -151,14 +107,16 @@ public class ConnectionService {
         connection.setUpdatedAt(OffsetDateTime.now());
 
         notificationService.send(
-                connection.getRequester().getId(),
-                "CONNECTION_ACCEPTED",
-                "Connection Accepted!",
-                connection.getReceiver().getName() + " accepted your request",
-                null);
+    connection.getRequester().getId(),
+    "CONNECTION_ACCEPTED",
+    "Connection Accepted!",
+    connection.getReceiver().getName() + " accepted your request",
+    null
+);
 
         return connectionRepository.save(connection);
     }
+
 
     // REJECT REQUEST
 
@@ -213,7 +171,7 @@ public class ConnectionService {
         }
 
         if (!connection.getRequester().getId().equals(requester.getId()) &&
-                !connection.getReceiver().getId().equals(requester.getId())) {
+            !connection.getReceiver().getId().equals(requester.getId())) {
             throw new RuntimeException("Forbidden");
         }
 

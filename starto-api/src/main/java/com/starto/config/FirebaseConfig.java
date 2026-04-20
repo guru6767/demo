@@ -19,20 +19,21 @@ public class FirebaseConfig {
     @Value("${firebase.config-path}")
     private String configPath;
 
+           
     @PostConstruct
     public void init() throws IOException {
-        if (FirebaseApp.getApps().isEmpty()) {
-            ClassPathResource resource = new ClassPathResource("firebase-service-account.json");
-            InputStream serviceAccount = resource.getInputStream();
+        if(FirebaseApp.getApps().isEmpty()){
+              ClassPathResource resource = new ClassPathResource("firebase-service-account.json");
+              InputStream serviceAccount = resource.getInputStream();
 
-            FirebaseOptions options = FirebaseOptions.builder()
+              FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .build();
 
-            FirebaseApp.initializeApp(options);
-            System.out.println("Firebase initialized: " + FirebaseApp.getApps().size());
+                    FirebaseApp.initializeApp(options);
+                            System.out.println("Firebase initialized: " + FirebaseApp.getApps().size());
 
         }
     }
-
+ 
 }

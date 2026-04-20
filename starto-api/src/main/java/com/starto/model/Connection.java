@@ -10,11 +10,13 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "connections", indexes = {
+@Table(name = "connections",
+    indexes = {
         @Index(name = "idx_connections_requester", columnList = "requester_id"),
         @Index(name = "idx_connections_receiver", columnList = "receiver_id"),
         @Index(name = "idx_connections_status", columnList = "status")
-})
+    }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -37,7 +39,7 @@ public class Connection {
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "signal_id", nullable = true)
+    @JoinColumn(name = "signal_id", nullable = true) 
     private Signal signal;
 
     @Column(nullable = false, length = 20)
@@ -55,7 +57,7 @@ public class Connection {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 
-    // derived getters — no extra DB columns needed
+    //  derived getters — no extra DB columns needed
     public UUID getRequesterId() {
         return requester != null ? requester.getId() : null;
     }

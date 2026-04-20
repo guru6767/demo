@@ -13,10 +13,11 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     List<Notification> findByUserIdOrderByCreatedAtDesc(UUID userId);
 
     @Query("SELECT COUNT(n) FROM Notification n WHERE n.user.id = :userId AND n.isRead = false")
-    long countUnreadByUserId(@Param("userId") UUID userId);
+long countUnreadByUserId(@Param("userId") UUID userId);
 
-    @Modifying
-    @Query("UPDATE Notification n SET n.isRead = true WHERE n.user.id = :userId AND n.isRead = false")
-    void markAllReadByUserId(@Param("userId") UUID userId);
+@Modifying
+@Query("UPDATE Notification n SET n.isRead = true WHERE n.user.id = :userId AND n.isRead = false")
+void markAllReadByUserId(@Param("userId") UUID userId);
+
 
 }

@@ -23,7 +23,7 @@ public class NotificationService {
     private final FcmService fcmService;
 
     @Transactional
-    public Notification send(UUID userId, String type, String title, String body, Map<String, Object> data) {
+    public Notification send(UUID userId, String type, String title, String body,Map<String, Object> data) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -58,14 +58,14 @@ public class NotificationService {
         });
     }
 
-    // NotificationService.java — replace with single bulk update
-    @Transactional
-    public void markAllAsRead(UUID userId) {
-        notificationRepository.markAllReadByUserId(userId);
-    }
+   // NotificationService.java — replace with single bulk update
+@Transactional
+public void markAllAsRead(UUID userId) {
+    notificationRepository.markAllReadByUserId(userId);
+}
 
-    // NotificationService.java
-    public long countUnreadByUserId(UUID userId) {
-        return notificationRepository.countUnreadByUserId(userId);
-    }
+// NotificationService.java
+public long countUnreadByUserId(UUID userId) {
+    return notificationRepository.countUnreadByUserId(userId);
+}
 }

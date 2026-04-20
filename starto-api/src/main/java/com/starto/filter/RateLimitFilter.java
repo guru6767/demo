@@ -16,13 +16,13 @@ public class RateLimitFilter implements Filter {
 
     private Bucket createNewBucket() {
         return Bucket.builder()
-                .addLimit(Bandwidth.simple(100, Duration.ofMinutes(1)))
+                .addLimit(Bandwidth.simple(30, Duration.ofMinutes(1)))
                 .build();
     }
 
     private Bucket createStrictBucket() {
         return Bucket.builder()
-                .addLimit(Bandwidth.simple(50, Duration.ofMinutes(1)))
+                .addLimit(Bandwidth.simple(10, Duration.ofMinutes(1)))
                 .build();
     }
 
@@ -44,8 +44,9 @@ public class RateLimitFilter implements Filter {
             identifier = "ip_" + req.getRemoteAddr();
         }
 
-        Bucket bucket = cache.computeIfAbsent(identifier,
-                k -> identifier.startsWith("user_") ? createNewBucket() : createStrictBucket());
+        Bucket bucket = cache.computeIfAbsent(identifier, k ->
+                identifier.startsWith("user_") ? createNewBucket() : createStrictBucket()
+        );
 
         if (bucket.tryConsume(1)) {
             chain.doFilter(request, response);

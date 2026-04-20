@@ -26,43 +26,48 @@ public class GeminiClient {
 
     public String validate(String prompt) {
 
-        String url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key="
-                + apiKey;
+        String url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=" + apiKey;
 
         Map<String, Object> request = Map.of(
-                "contents", List.of(
-                        Map.of(
-                                "parts", List.of(
-                                        Map.of("text", prompt)))));
+        "contents", List.of(
+            Map.of(
+                "parts", List.of(
+                    Map.of("text", prompt)
+                )
+            )
+        )
+    );
 
         try {
             return webClient.post()
-                    .uri(url)
-                    .bodyValue(request)
-                    .retrieve()
+    .uri(url)
+    .bodyValue(request)
+    .retrieve()
 
-                    // Log actual error from Gemini
-                    .onStatus(status -> status.isError(), response -> response.bodyToMono(String.class)
-                            .flatMap(body -> {
-                                log.error("Gemini error body: {}", body);
-                                return Mono.error(new RuntimeException(body));
-                            }))
+    //  Log actual error from Gemini
+    .onStatus(status -> status.isError(), response ->
+        response.bodyToMono(String.class)
+            .flatMap(body -> {
+                log.error("Gemini error body: {}", body);
+                return Mono.error(new RuntimeException(body));
+            })
+    )
 
-                    .bodyToMono(String.class)
+    .bodyToMono(String.class)
 
-                    // Retry 2 times if failed
-                    .retryWhen(Retry.fixedDelay(2, Duration.ofSeconds(2)))
+    //  Retry 2 times if failed
+    .retryWhen(Retry.fixedDelay(2, Duration.ofSeconds(2)))
 
-                    // Increase timeout
-                    .timeout(Duration.ofSeconds(20))
+    //  Increase timeout
+    .timeout(Duration.ofSeconds(20))
 
-                    // Fallback (MOST IMPORTANT)
-                    .onErrorResume(e -> {
-                        log.error("Gemini failed: {}", e.getMessage());
-                        return Mono.just("{\"marketDemandScore\":5,\"competitors\":[],\"risks\":[]}");
-                    })
+    //  Fallback (MOST IMPORTANT)
+    .onErrorResume(e -> {
+    log.error("Gemini failed: {}", e.getMessage());
+    return Mono.just("{\"marketDemandScore\":5,\"competitors\":[],\"risks\":[]}");
+})
 
-                    .block(); // keep for now (later we remove)
+    .block();   // keep for now (later we remove)
 
         } catch (Exception e) {
             log.error("Gemini API failed", e);

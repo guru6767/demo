@@ -19,11 +19,11 @@ public class SignalExpiryScheduler {
     private final SignalRepository signalRepository;
 
     // SignalExpiryScheduler.java — replace with bulk DB update
-    @Scheduled(cron = "0 0 * * * *")
-    @Transactional
-    public void checkExpiredSignals() {
-        signalRepository.expireOldSignals(OffsetDateTime.now());
-    }
+@Scheduled(cron = "0 0 * * * *")
+@Transactional
+public void checkExpiredSignals() {
+    signalRepository.expireOldSignals(OffsetDateTime.now());
+}
 
     @Scheduled(cron = "0 0 0 * * *") // Every midnight
     @Transactional

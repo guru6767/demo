@@ -23,7 +23,6 @@ public class RedisConfig {
         return new LettuceConnectionFactory();
     }
 
-    // ✅ FIXED serializer (added type info)
     @Bean
     public RedisSerializer<Object> redisSerializer() {
         ObjectMapper mapper = new ObjectMapper();
@@ -32,12 +31,12 @@ public class RedisConfig {
         // 🔥 IMPORTANT FIX: enable type information
         mapper.activateDefaultTyping(
                 mapper.getPolymorphicTypeValidator(),
-                ObjectMapper.DefaultTyping.NON_FINAL);
+                ObjectMapper.DefaultTyping.NON_FINAL
+        );
 
         return new GenericJackson2JsonRedisSerializer(mapper);
     }
 
-    // ✅ RedisTemplate
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
@@ -49,20 +48,19 @@ public class RedisConfig {
         template.setValueSerializer(serializer);
         template.setHashValueSerializer(serializer);
 
-        template.afterPropertiesSet(); // ✅ good practice
+        template.afterPropertiesSet(); 
 
         return template;
     }
 
-    // ✅ CacheManager (already good, just using fixed serializer)
     @Bean
     public CacheManager cacheManager() {
 
-        RedisSerializationContext.SerializationPair<Object> valueSerializer = RedisSerializationContext.SerializationPair
-                .fromSerializer(redisSerializer());
+        RedisSerializationContext.SerializationPair<Object> valueSerializer =
+                RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer());
 
-        RedisSerializationContext.SerializationPair<String> keySerializer = RedisSerializationContext.SerializationPair
-                .fromSerializer(new StringRedisSerializer());
+        RedisSerializationContext.SerializationPair<String> keySerializer =
+                RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer());
 
         RedisCacheConfiguration exploreConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofHours(6))

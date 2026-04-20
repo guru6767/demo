@@ -4,7 +4,6 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import jakarta.annotation.PostConstruct;
-
 @Data
 @Component
 @ConfigurationProperties(prefix = "razorpay")
@@ -30,10 +29,9 @@ public class RazorpayPlanProperties {
         private String growth;
         private String annual;
     }
-
     @PostConstruct
-    public void init() {
-        System.out.println("SPRING CONFIG LOADED:");
-        System.out.println("CAPTAIN PLAN = " + plans.getCaptain());
-    }
+public void init() {
+    System.out.println("SPRING CONFIG LOADED:");
+    System.out.println("CAPTAIN PLAN = " + plans.getCaptain());
+}
 }

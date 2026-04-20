@@ -22,12 +22,12 @@ public class NotificationController {
     // get all notifications
     @GetMapping
     public ResponseEntity<?> getNotifications(Authentication authentication) {
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
+        if (authentication == null) return ResponseEntity.status(401).build();
 
         return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
                 .map(user -> ResponseEntity.ok(
-                        notificationService.getNotifications(user.getId())))
+                        notificationService.getNotifications(user.getId())
+                ))
                 .orElse(ResponseEntity.status(401).build());
     }
 
@@ -36,8 +36,7 @@ public class NotificationController {
     public ResponseEntity<?> markAsRead(
             Authentication authentication,
             @PathVariable UUID id) {
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
+        if (authentication == null) return ResponseEntity.status(401).build();
         notificationService.markAsRead(id);
         return ResponseEntity.ok().build();
     }
@@ -45,8 +44,7 @@ public class NotificationController {
     // mark all as read
     @PutMapping("/read-all")
     public ResponseEntity<?> markAllAsRead(Authentication authentication) {
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
+        if (authentication == null) return ResponseEntity.status(401).build();
 
         return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
                 .map(user -> {
@@ -56,16 +54,19 @@ public class NotificationController {
                 .orElse(ResponseEntity.status(401).build());
     }
 
-    @GetMapping("/unread-count")
-    public ResponseEntity<?> getUnreadCount(Authentication authentication) {
 
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
+   @GetMapping("/unread-count")
+public ResponseEntity<?> getUnreadCount(Authentication authentication) {
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> ResponseEntity.ok(
-                        Map.of("count",
-                                notificationService.countUnreadByUserId(user.getId()))))
-                .orElse(ResponseEntity.status(401).build());
-    }
+    if (authentication == null)
+        return ResponseEntity.status(401).build();
+
+    return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
+            .map(user -> ResponseEntity.ok(
+                    Map.of("count",
+                        notificationService.countUnreadByUserId(user.getId())
+                    )
+            ))
+            .orElse(ResponseEntity.status(401).build());
+}
 }

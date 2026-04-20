@@ -45,11 +45,11 @@ public class Comment {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    // null = top level comment, has value = reply to a comment
+    //  null = top level comment, has value = reply to a comment
     @Column(name = "parent_id")
     private UUID parentId;
 
-    // load replies automatically
+    //  load replies automatically
     @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "parent_id")
     private List<Comment> replies;

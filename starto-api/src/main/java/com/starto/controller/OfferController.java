@@ -37,37 +37,36 @@ public class OfferController {
     }
 
     // talent sends offer
-    @PostMapping("/request")
-    public ResponseEntity<?> sendOffer(
-            Authentication authentication,
-            @RequestBody OfferRequestDTO dto) {
+   @PostMapping("/request")
+public ResponseEntity<?> sendOffer(
+        Authentication authentication,
+        @RequestBody OfferRequestDTO dto) {
 
-        User user = getUser(authentication);
-        if (user == null)
-            return ResponseEntity.status(401).build();
+    User user = getUser(authentication);
+    if (user == null) return ResponseEntity.status(401).build();
 
-        // 🔥 Use safe parser (VERY IMPORTANT)
-        Plan plan = user.getPlan();
+    //  Use safe parser (VERY IMPORTANT)
+    Plan plan = user.getPlan();
 
-        // 🔥 Get current usage
-        int usedOffers = offerService.countUserOffers(user.getId());
+    //  Get current usage
+    int usedOffers = offerService.countUserOffers(user.getId());
 
-        // 🔥 Enforce limit
-        if (!planService.canSendOffer(plan, usedOffers)) {
-            return ResponseEntity.status(403).body(Map.of(
-                    "error", "Offer limit reached",
-                    "upgradeUrl", "/api/subscriptions/upgrade"));
-        }
-
-        return ResponseEntity.ok(offerService.sendOffer(user, dto));
+    //  Enforce limit
+    if (!planService.canSendOffer(plan, usedOffers)) {
+        return ResponseEntity.status(403).body(Map.of(
+                "error", "Offer limit reached",
+                "upgradeUrl", "/api/subscriptions/upgrade"
+        ));
     }
+
+    return ResponseEntity.ok(offerService.sendOffer(user, dto));
+}
 
     // founder sees inbox
     @GetMapping("/inbox")
     public ResponseEntity<?> getInbox(Authentication authentication) {
         User user = getUser(authentication);
-        if (user == null)
-            return ResponseEntity.status(401).build();
+        if (user == null) return ResponseEntity.status(401).build();
 
         return ResponseEntity.ok(offerService.getAllOffers(user.getId()));
     }
@@ -76,34 +75,32 @@ public class OfferController {
     @GetMapping("/sent")
     public ResponseEntity<?> getSent(Authentication authentication) {
         User user = getUser(authentication);
-        if (user == null)
-            return ResponseEntity.status(401).build();
+        if (user == null) return ResponseEntity.status(401).build();
 
         return ResponseEntity.ok(offerService.getSentOffers(user.getId()));
     }
 
-    // 🔥 WhatsApp link with PLAN CONTROL
+    //  WhatsApp link with PLAN CONTROL
     @GetMapping("/{offerId}/whatsapp")
     public ResponseEntity<?> getWhatsappLink(
             Authentication authentication,
             @PathVariable UUID offerId) {
 
         User user = getUser(authentication);
-        if (user == null)
-            return ResponseEntity.status(401).build();
+        if (user == null) return ResponseEntity.status(401).build();
 
         Offer offer = offerService.getOfferById(offerId);
 
-        // 🔥 Convert plan
+        //  Convert plan
         Plan plan = Plan.valueOf(user.getPlan().name().toUpperCase());
 
-        // ✅ Founder always allowed
+        //  Founder always allowed
         if (offer.getReceiverId().equals(user.getId())) {
             String link = offerService.getWhatsappLink(user, offerId);
             return ResponseEntity.ok(Map.of("whatsappUrl", link));
         }
 
-        // ✅ Talent (plan-based access)
+        //  Talent (plan-based access)
         if (offer.getRequesterId().equals(user.getId())) {
 
             if (planService.isWhatsappUnlocked(plan)) {
@@ -112,7 +109,8 @@ public class OfferController {
             } else {
                 return ResponseEntity.status(403).body(Map.of(
                         "error", "Upgrade your plan to unlock WhatsApp",
-                        "upgradeUrl", "/api/subscriptions/upgrade"));
+                        "upgradeUrl", "/api/subscriptions/upgrade"
+                ));
             }
         }
 

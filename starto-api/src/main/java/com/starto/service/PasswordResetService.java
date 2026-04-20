@@ -12,7 +12,9 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class PasswordResetService {
 
-    // firebase admin SDK sends the email automatically
+    
+
+    //firebase admin SDK sends the email automatically
     public void sendPasswordResetEmail(String email) {
         try {
             // Check if user exists with this email first
@@ -38,7 +40,9 @@ public class PasswordResetService {
         }
     }
 
-    // directly updates the password in firebase
+
+
+    //directly updates the password in firebase
     public void updatePassword(String firebaseUid, String newPassword) {
         try {
             UserRecord.UpdateRequest request = new UserRecord.UpdateRequest(firebaseUid)

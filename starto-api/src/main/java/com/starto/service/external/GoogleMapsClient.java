@@ -28,7 +28,7 @@ public class GoogleMapsClient {
                     .uri(url)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .timeout(Duration.ofSeconds(5)) // faster timeout
+                    .timeout(Duration.ofSeconds(5)) //  faster timeout
                     .block();
 
             return response;

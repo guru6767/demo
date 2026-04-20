@@ -11,10 +11,12 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "notifications", indexes = {
+@Table(name = "notifications",
+    indexes = {
         @Index(name = "idx_notifications_user_id", columnList = "user_id"),
         @Index(name = "idx_notifications_is_read", columnList = "is_read")
-})
+    }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -37,8 +39,8 @@ public class Notification {
     private String body;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
-    private Map<String, Object> data;
+@Column(columnDefinition = "jsonb")
+private Map<String, Object> data;
 
     @Column(name = "is_read")
     @Builder.Default
@@ -48,4 +50,5 @@ public class Notification {
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 
+   
 }

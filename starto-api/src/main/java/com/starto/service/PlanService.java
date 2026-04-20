@@ -10,13 +10,11 @@ public class PlanService {
     private static final int UNLIMITED = -1;
 
     // 🔹 Generic limit checker (core logic)
-    private boolean isAllowed(int limit, int used) {
-        return limit == Integer.MAX_VALUE || used < limit;
-    }
+   private boolean isAllowed(int limit, int used) {
+    return limit == Integer.MAX_VALUE || used < limit;
+}
 
-    // =========================
-    // 🚀 SIGNALS
-    // =========================
+    //  SIGNALS
     public boolean canPostSignal(Plan plan, int activeSignals) {
         int limit = PlanConfig.MAX_SIGNALS.getOrDefault(plan, 0);
         return isAllowed(limit, activeSignals);
@@ -26,9 +24,7 @@ public class PlanService {
         return PlanConfig.MAX_SIGNALS.getOrDefault(plan, 0);
     }
 
-    // =========================
-    // 🎯 OFFERS
-    // =========================
+    // OFFERS
     public boolean canSendOffer(Plan plan, int usedOffers) {
         int limit = PlanConfig.MAX_OFFERS.getOrDefault(plan, 0);
         return isAllowed(limit, usedOffers);
@@ -38,28 +34,19 @@ public class PlanService {
         return PlanConfig.MAX_OFFERS.getOrDefault(plan, 0);
     }
 
-    // =========================
-    // 🤖 AI USAGE
-    // =========================
-    // public boolean canUseAI(Plan plan, int usedToday) {
-    // int limit = PlanConfig.MAX_AI_CALLS.getOrDefault(plan, 0);
-    // return isAllowed(limit, usedToday);
-    // }
+   
 
     public int getAiLimit(Plan plan) {
         return PlanConfig.MAX_AI_CALLS.getOrDefault(plan, 0);
     }
 
-    // =========================
-    // 📱 WHATSAPP ACCESS
-    // =========================
+    //  WHATSAPP ACCESS
     public boolean hasWhatsappAccess(Plan plan) {
         return PlanConfig.WHATSAPP_UNLOCK.getOrDefault(plan, false);
     }
 
-    // =========================
-    // 💰 PLAN INFO
-    // =========================
+
+    //  PLAN INFO
     public int getPlanPrice(Plan plan) {
         return PlanConfig.PLAN_PRICE_PAISE.getOrDefault(plan, 0);
     }
@@ -68,9 +55,7 @@ public class PlanService {
         return PlanConfig.PLAN_DURATION_DAYS.getOrDefault(plan, 0);
     }
 
-    // =========================
-    // 📊 ANALYTICS ACCESS
-    // =========================
+    //  ANALYTICS ACCESS
     public boolean hasBasicAnalytics(Plan plan) {
         return plan == Plan.PRO || plan == Plan.CAPTAIN;
     }
@@ -79,17 +64,14 @@ public class PlanService {
         return plan == Plan.PRO_PLUS || plan == Plan.GROWTH || plan == Plan.ANNUAL;
     }
 
-    // =========================
-    // 🚀 PRIORITY SUPPORT
-    // =========================
+    //  PRIORITY SUPPORT
     public boolean hasPrioritySupport(Plan plan) {
-        return plan == Plan.GROWTH || plan == Plan.ANNUAL
-                || plan == Plan.CAPTAIN || plan == Plan.CAPTAIN_PRO;
+        return plan == Plan.GROWTH || plan == Plan.ANNUAL 
+            || plan == Plan.CAPTAIN || plan == Plan.CAPTAIN_PRO;
     }
 
-    // =========================
-    // 🏅 PROFILE BADGE
-    // =========================
+
+    //  PROFILE BADGE
     public String getProfileBadge(Plan plan) {
         switch (plan) {
             case PRO:
@@ -109,9 +91,8 @@ public class PlanService {
         }
     }
 
-    // =========================
-    // 🧠 HELPER: PLAN TYPE
-    // =========================
+    //  HELPER: PLAN TYPE
+  
     public boolean isPaidPlan(Plan plan) {
         return plan != Plan.EXPLORER;
     }
@@ -121,25 +102,26 @@ public class PlanService {
     }
 
     public boolean isProOrAbove(Plan plan) {
-        return plan == Plan.PRO || plan == Plan.PRO_PLUS
-                || plan == Plan.GROWTH || plan == Plan.ANNUAL;
+        return plan == Plan.PRO || plan == Plan.PRO_PLUS 
+            || plan == Plan.GROWTH || plan == Plan.ANNUAL;
     }
 
     public boolean canUseAI(Plan plan, int usedToday) {
-        int limit = PlanConfig.MAX_AI_CALLS.getOrDefault(plan, 0);
-        return isAllowed(limit, usedToday);
-    }
+    int limit = PlanConfig.MAX_AI_CALLS.getOrDefault(plan, 0);
+    return isAllowed(limit, usedToday);
+}
 
     public boolean isWhatsappUnlocked(Plan plan) {
-        return PlanConfig.WHATSAPP_UNLOCK.getOrDefault(plan, false);
-    }
+    return PlanConfig.WHATSAPP_UNLOCK.getOrDefault(plan, false);
+}
 
-    public Plan parsePlan(String planStr) {
-        try {
-            return Plan.valueOf(planStr.toUpperCase());
-        } catch (Exception e) {
-            return Plan.EXPLORER;
-        }
+public Plan parsePlan(String planStr) {
+    try {
+        return Plan.valueOf(planStr.toUpperCase());
+    } catch (Exception e) {
+        return Plan.EXPLORER;
     }
+}
+
 
 }

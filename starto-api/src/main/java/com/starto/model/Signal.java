@@ -14,34 +14,38 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "signals", indexes = {
+@Table(name = "signals",
+    indexes = {
         @Index(name = "idx_signals_user_id", columnList = "user_id"),
         @Index(name = "idx_signals_status", columnList = "status"),
         @Index(name = "idx_signals_city", columnList = "city"),
         @Index(name = "idx_signals_seeking", columnList = "seeking"),
         @Index(name = "idx_signals_expires_at", columnList = "expires_at")
-})
+    }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Signal implements Serializable {
-    private static final long serialVersionUID = 1L;
-
+public class Signal implements Serializable{
+        private static final long serialVersionUID = 1L;
+        
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
-    @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+   @JsonIgnore
+@ManyToOne(fetch = FetchType.LAZY)
+@JoinColumn(name = "user_id", nullable = false)
+private User user;
 
-    @Column(name = "user_id", insertable = false, updatable = false)
-    private UUID userId;
 
-    @Formula("(SELECT u.username FROM users u WHERE u.id = user_id)")
-    private String username;
+@Column(name = "user_id", insertable = false, updatable = false)
+private UUID userId;
+
+
+@Formula("(SELECT u.username FROM users u WHERE u.id = user_id)")
+private String username;
 
     @Column(nullable = false, length = 50)
     private String type;
@@ -116,61 +120,8 @@ public class Signal implements Serializable {
     private OffsetDateTime updatedAt;
 
     @Column(length = 50)
-    private String seeking;
+  private String seeking;
 
-    // public UUID getId() {
-    // return id;
-    // }
 
-    // public void setId(UUID id) {
-    // this.id = id;
-    // }
 
-    // public User getUser() {
-    // return user;
-    // }
-
-    // public void setUser(User user) {
-    // this.user = user;
-    // }
-
-    // public String getType() {
-    // return type;
-    // }
-
-    // public void setType(String type) {
-    // this.type = type;
-    // }
-
-    // public String getTitle() {
-    // return title;
-    // }
-
-    // public void setTitle(String title) {
-    // this.title = title;
-    // }
-
-    // public String getDescription() {
-    // return description;
-    // }
-
-    // public void setDescription(String description) {
-    // this.description = description;
-    // }
-
-    // public String getStatus() {
-    // return status;
-    // }
-
-    // public void setStatus(String status) {
-    // this.status = status;
-    // }
-
-    // public OffsetDateTime getExpiresAt() {
-    // return expiresAt;
-    // }
-
-    // public void setExpiresAt(OffsetDateTime expiresAt) {
-    // this.expiresAt = expiresAt;
-    // }
 }

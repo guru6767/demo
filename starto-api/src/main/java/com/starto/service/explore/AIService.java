@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import com.starto.service.external.OpenAIClient;
 import com.starto.service.external.GeminiClient;
 
+
 @Service
 @RequiredArgsConstructor
 public class AIService {

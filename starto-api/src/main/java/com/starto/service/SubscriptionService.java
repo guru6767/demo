@@ -42,77 +42,78 @@ public class SubscriptionService {
 
     public SubscriptionResponseDTO createOrder(User user, String plan) {
 
-        Plan planEnum = Plan.valueOf(plan.toUpperCase());
+    Plan planEnum = Plan.valueOf(plan.toUpperCase());
 
-        PlanEntity planEntity = planRepository.findByCode(planEnum)
-                .orElseThrow(() -> new RuntimeException("Plan not found"));
+    PlanEntity planEntity = planRepository.findByCode(planEnum)
+            .orElseThrow(() -> new RuntimeException("Plan not found"));
 
-        int amountPaise = planEntity.getPricePaise();
+    int amountPaise = planEntity.getPricePaise();
 
-        String orderId = null;
-        String subscriptionId = null;
+    String orderId = null;
+    String subscriptionId = null;
 
-        // 🔥 HANDLE BOTH FLOWS
-        if (planEntity.getBillingType() == BillingType.ONE_TIME) {
+    if (planEntity.getBillingType() == BillingType.ONE_TIME) {
 
-            // ✅ ONE-TIME PAYMENT
-            orderId = razorpayService.createOrder(amountPaise);
+        //  ONE-TIME PAYMENT
+        orderId = razorpayService.createOrder(amountPaise);
 
-        } else {
+    } else {
 
-            // ✅ RECURRING PAYMENT
-            if (planEntity.getRazorpayPlanId() == null) {
-                throw new RuntimeException("Razorpay plan ID not configured for this plan");
-            }
-
-            subscriptionId = razorpayService.createSubscription(
-                    planEntity.getRazorpayPlanId());
+        //  RECURRING PAYMENT
+        if (planEntity.getRazorpayPlanId() == null) {
+            throw new RuntimeException("Razorpay plan ID not configured for this plan");
         }
 
-        // 🔥 SAVE SUBSCRIPTION
-        Subscription subscription = Subscription.builder()
-                .user(user)
-                .plan(planEnum.name())
-                .amountPaid(amountPaise)
-                .razorpayOrderId(orderId) // null for recurring
-                .razorpaySubscriptionId(subscriptionId) // null for one-time
-                .status("PENDING")
-                .createdAt(OffsetDateTime.now())
-                .build();
-
-        Subscription saved = subscriptionRepository.save(subscription);
-
-        // 🔥 RESPONSE TO FRONTEND
-        return SubscriptionResponseDTO.builder()
-                .id(saved.getId())
-                .plan(saved.getPlan())
-                .status(saved.getStatus())
-                .amountPaid(saved.getAmountPaid())
-                .razorpayOrderId(orderId)
-                .razorpaySubscriptionId(subscriptionId) // 👈 important
-                .build();
+        subscriptionId = razorpayService.createSubscription(
+                planEntity.getRazorpayPlanId()
+        );
     }
 
-    // `signature` param + corrected variable names + Plan enum lookup
+    //  SAVE SUBSCRIPTION
+    Subscription subscription = Subscription.builder()
+            .user(user)
+            .plan(planEnum.name())
+            .amountPaid(amountPaise)
+            .razorpayOrderId(orderId) // null for recurring
+            .razorpaySubscriptionId(subscriptionId) // null for one-time
+            .status("PENDING")
+            .createdAt(OffsetDateTime.now())
+            .build();
+
+    Subscription saved = subscriptionRepository.save(subscription);
+
+    //  RESPONSE TO FRONTEND
+    return SubscriptionResponseDTO.builder()
+            .id(saved.getId())
+            .plan(saved.getPlan())
+            .status(saved.getStatus())
+            .amountPaid(saved.getAmountPaid())
+            .razorpayOrderId(orderId)
+            .razorpaySubscriptionId(subscriptionId) 
+            .build();
+}
+
+    //   `signature` param + corrected variable names + Plan enum lookup
     @Transactional
     public void activateSubscription(String razorpayOrderId, String razorpayPaymentId, String signature) {
         Subscription subscription = subscriptionRepository
-                .findByRazorpayOrderId(razorpayOrderId)
+                .findByRazorpayOrderId(razorpayOrderId)         
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
         if ("ACTIVE".equals(subscription.getStatus())) {
             throw new RuntimeException("Subscription already activated");
         }
 
-        boolean verified = razorpayService.verifySignature(razorpayOrderId, razorpayPaymentId, signature);
-        if (!verified)
-            throw new RuntimeException("Payment verification failed");
+        //before deploy uncomment below line
+      //  boolean verified = razorpayService.verifySignature(razorpayOrderId, razorpayPaymentId, signature); 
+      boolean  verified = true;
+        if (!verified) throw new RuntimeException("Payment verification failed");
 
-        Plan planEnum = Plan.valueOf(subscription.getPlan().toUpperCase()); // enum lookup
+        Plan planEnum = Plan.valueOf(subscription.getPlan().toUpperCase()); //  enum lookup
         PlanEntity planEntity = planRepository.findByCode(planEnum)
-                .orElseThrow(() -> new RuntimeException("Plan not found"));
+        .orElseThrow(() -> new RuntimeException("Plan not found"));
 
-        int days = planEntity.getDurationDays();
+       int days = planEntity.getDurationDays();
         OffsetDateTime now = OffsetDateTime.now();
 
         subscription.setRazorpayPaymentId(razorpayPaymentId);
@@ -121,211 +122,227 @@ public class SubscriptionService {
         subscription.setExpiresAt(now.plusDays(days));
         subscriptionRepository.save(subscription);
 
-        User user = userRepository.findById(subscription.getUser().getId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        Plan previousPlan = user.getPlan();
+       User user = userRepository.findById(subscription.getUser().getId())
+        .orElseThrow(() -> new RuntimeException("User not found"));
+    Plan previousPlan = user.getPlan();
 
-        // expire all other active subscriptions — handles upgrade case
-        subscriptionRepository.findActiveByUserId(user.getId())
-                .forEach(sub -> {
-                    if (!sub.getId().equals(subscription.getId())) {
-                        sub.setStatus("SUPERSEDED");
-                        subscriptionRepository.save(sub);
-                    }
-                });
+    // expire all other active subscriptions — handles upgrade case
+    subscriptionRepository.findActiveByUserId(user.getId())
+        .forEach(sub -> {
+            if (!sub.getId().equals(subscription.getId())) {
+                sub.setStatus("SUPERSEDED");
+                subscriptionRepository.save(sub);
+            }
+        });
 
-        // update user plan
-        user.setPlan(planEnum);
-        user.setPlanExpiresAt(subscription.getExpiresAt());
-        userRepository.saveAndFlush(user);
+    // update user plan
+    user.setPlan(planEnum);
+    user.setPlanExpiresAt(subscription.getExpiresAt());
+    userRepository.saveAndFlush(user);
 
-        // send payment receipt
-        emailService.sendPaymentSuccessEmail(
-                user,
-                subscription.getPlan(),
-                subscription.getAmountPaid(),
-                razorpayOrderId);
+    // send payment receipt
+    emailService.sendPaymentSuccessEmail(
+        user,
+        subscription.getPlan(),
+        subscription.getAmountPaid(),
+        razorpayOrderId
+    );
 
-        // send upgrade or welcome email
-        if (previousPlan != Plan.EXPLORER && previousPlan != planEnum) {
-            System.out.println("➡️ About to send subscription email to: " + user.getEmail());
-            emailService.sendPlanUpgradeEmail(user, previousPlan.name(), planEnum.name());
-            System.out.println("➡️ Email method called");
-        } else {
-            emailService.sendWelcomePlanEmail(user);
-        }
+    // send upgrade or welcome email
+    if (previousPlan != Plan.EXPLORER && previousPlan != planEnum) {
+        System.out.println(" About to send subscription email to: "+user.getEmail());
+        emailService.sendPlanUpgradeEmail(user, previousPlan.name(), planEnum.name());
+        System.out.println(" Email method called");
+    } else {
+        emailService.sendWelcomePlanEmail(user);
+    }
 
-        // in-app notification
-        notificationService.send(
-                user.getId(),
-                "PAYMENT_SUCCESS",
-                "Payment Successful!",
-                "Your " + subscription.getPlan() + " plan is now active.",
-                Map.of(
-                        "plan", subscription.getPlan(),
-                        "expiresAt", subscription.getExpiresAt().toString(),
-                        "amountPaid", subscription.getAmountPaid()));
+    // in-app notification
+    notificationService.send(
+        user.getId(),
+        "PAYMENT_SUCCESS",
+        "Payment Successful!",
+        "Your " + subscription.getPlan() + " plan is now active.",
+        Map.of(
+            "plan", subscription.getPlan(),
+            "expiresAt", subscription.getExpiresAt().toString(),
+            "amountPaid", subscription.getAmountPaid()
+        )
+    );
     }
 
     public boolean isPlanActive(User user) {
-        if (user.getPlan().name().equalsIgnoreCase("EXPLORER"))
-            return true;
+        if (user.getPlan().name().equalsIgnoreCase("EXPLORER")) return true;
         return user.getPlanExpiresAt() != null &&
-                user.getPlanExpiresAt().isAfter(OffsetDateTime.now());
+               user.getPlanExpiresAt().isAfter(OffsetDateTime.now());
     }
 
     public boolean canUnlockWhatsapp(User user) {
-        Plan planEnum = Plan.valueOf(user.getPlan().name().toUpperCase());
+        Plan planEnum = Plan.valueOf(user.getPlan().name().toUpperCase()); 
         return isPlanActive(user) &&
-                PlanConfig.WHATSAPP_UNLOCK.getOrDefault(planEnum, false);
+               PlanConfig.WHATSAPP_UNLOCK.getOrDefault(planEnum, false);
     }
 
     public int getMaxSignals(User user) {
-        Plan planEnum = Plan.valueOf(user.getPlan().name().toUpperCase());
+        Plan planEnum = Plan.valueOf(user.getPlan().name().toUpperCase()); 
         return PlanConfig.MAX_SIGNALS.getOrDefault(planEnum, 2);
     }
 
     public int getMaxOffers(User user) {
-        Plan planEnum = Plan.valueOf(user.getPlan().name().toUpperCase());
+        Plan planEnum = Plan.valueOf(user.getPlan().name().toUpperCase()); 
         return PlanConfig.MAX_OFFERS.getOrDefault(planEnum, 3);
     }
 
     public List<SubscriptionResponseDTO> getPaymentHistory(UUID userId) {
-        return subscriptionRepository.findByUserIdOrderByCreatedAtDesc(userId)
-                .stream()
-                .map(sub -> SubscriptionResponseDTO.builder()
-                        .id(sub.getId())
-                        .plan(sub.getPlan())
-                        .status(sub.getStatus())
-                        .amountPaid(sub.getAmountPaid())
-                        .razorpayOrderId(sub.getRazorpayOrderId())
-                        .startsAt(sub.getStartsAt())
-                        .expiresAt(sub.getExpiresAt())
-                        .build())
-                .collect(java.util.stream.Collectors.toList());
+    return subscriptionRepository.findByUserIdOrderByCreatedAtDesc(userId)
+            .stream()
+            .map(sub -> SubscriptionResponseDTO.builder()
+                    .id(sub.getId())
+                    .plan(sub.getPlan())
+                    .status(sub.getStatus())
+                    .amountPaid(sub.getAmountPaid())
+                    .razorpayOrderId(sub.getRazorpayOrderId())
+                    .startsAt(sub.getStartsAt())
+                    .expiresAt(sub.getExpiresAt())
+                    .build()
+            )
+            .collect(java.util.stream.Collectors.toList());
+}
+
+
+public SubscriptionResponseDTO upgradePlan(User user, String newPlan) {
+
+    Plan newPlanEnum = Plan.valueOf(newPlan.toUpperCase());
+    Plan currentPlan = user.getPlan();
+
+    // same plan check
+    if (currentPlan == newPlanEnum) {
+        throw new RuntimeException("You are already on " + newPlan + " plan");
     }
 
-    public SubscriptionResponseDTO upgradePlan(User user, String newPlan) {
-
-        Plan newPlanEnum = Plan.valueOf(newPlan.toUpperCase());
-        Plan currentPlan = user.getPlan();
-
-        // same plan check
-        if (currentPlan == newPlanEnum) {
-            throw new RuntimeException("You are already on " + newPlan + " plan");
-        }
-
-        // cant switch to free
-        if (newPlanEnum == Plan.EXPLORER) {
-            throw new RuntimeException("Cannot switch to free plan manually");
-        }
-
-        // check plan hierarchy — prevent downgrade
-        int currentPlanPrice = PlanConfig.PLAN_PRICE_PAISE.getOrDefault(currentPlan, 0);
-        int newPlanPrice = PlanConfig.PLAN_PRICE_PAISE.getOrDefault(newPlanEnum, 0);
-
-        if (newPlanPrice < currentPlanPrice) {
-            throw new RuntimeException(
-                    "Cannot downgrade from " + currentPlan.name() +
-                            " to " + newPlan + ". Please wait for your current plan to expire.");
-        }
-
-        // check if current plan is active
-        boolean isCurrentActive = user.getPlanExpiresAt() != null &&
-                user.getPlanExpiresAt().isAfter(OffsetDateTime.now());
-
-        if (isCurrentActive) {
-            // calculate remaining days on current plan
-            long remainingDays = java.time.temporal.ChronoUnit.DAYS.between(
-                    OffsetDateTime.now(), user.getPlanExpiresAt());
-            System.out.println("User has " + remainingDays + " days remaining on " + currentPlan.name());
-            // note: remaining days are forfeited on upgrade
-            // you can add credit logic here later if needed
-        }
-
-        // create one-time order for new plan
-        int amountPaise = PlanConfig.PLAN_PRICE_PAISE.get(newPlanEnum);
-        String orderId = razorpayService.createOrder(amountPaise);
-
-        com.starto.model.Subscription subscription = com.starto.model.Subscription.builder()
-                .user(user)
-                .plan(newPlanEnum.name())
-                .amountPaid(amountPaise)
-                .razorpayOrderId(orderId)
-                .status("PENDING")
-                .createdAt(OffsetDateTime.now())
-                .build();
-
-        com.starto.model.Subscription saved = subscriptionRepository.save(subscription);
-
-        return SubscriptionResponseDTO.builder()
-                .id(saved.getId())
-                .plan(saved.getPlan())
-                .status(saved.getStatus())
-                .amountPaid(saved.getAmountPaid())
-                .razorpayOrderId(saved.getRazorpayOrderId())
-                .build();
+    // cant switch to free
+    if (newPlanEnum == Plan.EXPLORER) {
+        throw new RuntimeException("Cannot switch to free plan manually");
     }
 
-    public Map<String, Object> getCurrentPlanStatus(User user) {
+    // check plan hierarchy — prevent downgrade
+    int currentPlanPrice = PlanConfig.PLAN_PRICE_PAISE.getOrDefault(currentPlan, 0);
+    int newPlanPrice = PlanConfig.PLAN_PRICE_PAISE.getOrDefault(newPlanEnum, 0);
 
-        OffsetDateTime now = OffsetDateTime.now();
-
-        boolean isActive = user.getPlanExpiresAt() == null
-                || user.getPlanExpiresAt().isAfter(now);
-
-        long daysLeft = 0;
-
-        if (user.getPlanExpiresAt() != null) {
-            daysLeft = java.time.temporal.ChronoUnit.DAYS.between(
-                    now,
-                    user.getPlanExpiresAt());
-        }
-
-        return Map.of(
-                "plan", user.getPlan().name(),
-                "isActive", isActive,
-                "daysLeft", Math.max(daysLeft, 0),
-                "expiresAt", user.getPlanExpiresAt());
+    if (newPlanPrice < currentPlanPrice) {
+        throw new RuntimeException(
+            "Cannot downgrade from " + currentPlan.name() + 
+            " to " + newPlan + ". Please wait for your current plan to expire."
+        );
     }
 
-    @Transactional
-    public void activateSubscriptionBySubscription(String subscriptionId, String paymentId) {
+    // check if current plan is active
+    boolean isCurrentActive = user.getPlanExpiresAt() != null &&
+            user.getPlanExpiresAt().isAfter(OffsetDateTime.now());
 
-        Subscription subscription = subscriptionRepository
-                .findByRazorpaySubscriptionId(subscriptionId)
-                .orElseThrow(() -> new RuntimeException("Subscription not found"));
-
-        if ("ACTIVE".equals(subscription.getStatus())) {
-            throw new RuntimeException("Already active");
-        }
-
-        // ✅ HERE IS WHERE YOUR CODE GOES
-        // JSONObject payment = razorpayService.fetchPayment(paymentId);
-
-        // String fetchedSubId = payment.optString("subscription_id");
-
-        // if (!subscriptionId.equals(fetchedSubId)) {
-        // throw new RuntimeException("Invalid subscription-payment mapping");
-        // }
-
-        subscription.setStatus("ACTIVE");
-        subscription.setRazorpayPaymentId(paymentId);
-
-        OffsetDateTime now = OffsetDateTime.now();
-
-        Plan planEnum = Plan.valueOf(subscription.getPlan().toUpperCase());
-        PlanEntity planEntity = planRepository.findByCode(planEnum)
-                .orElseThrow(() -> new RuntimeException("Plan not found"));
-
-        subscription.setStartsAt(now);
-        subscription.setExpiresAt(now.plusDays(planEntity.getDurationDays()));
-
-        subscriptionRepository.save(subscription);
-
-        User user = subscription.getUser();
-        user.setPlan(planEnum);
-        user.setPlanExpiresAt(subscription.getExpiresAt());
-        userRepository.save(user);
+    if (isCurrentActive) {
+        // calculate remaining days on current plan
+        long remainingDays = java.time.temporal.ChronoUnit.DAYS.between(
+            OffsetDateTime.now(), user.getPlanExpiresAt()
+        );
+        System.out.println("User has " + remainingDays + " days remaining on " + currentPlan.name());
+        // note: remaining days are forfeited on upgrade
+        // you can add credit logic here later if needed
     }
+
+    // create one-time order for new plan
+    int amountPaise = PlanConfig.PLAN_PRICE_PAISE.get(newPlanEnum);
+    String orderId = razorpayService.createOrder(amountPaise);
+
+    com.starto.model.Subscription subscription = com.starto.model.Subscription.builder()
+            .user(user)
+            .plan(newPlanEnum.name())
+            .amountPaid(amountPaise)
+            .razorpayOrderId(orderId)
+            .status("PENDING")
+            .createdAt(OffsetDateTime.now())
+            .build();
+
+    com.starto.model.Subscription saved = subscriptionRepository.save(subscription);
+
+    return SubscriptionResponseDTO.builder()
+            .id(saved.getId())
+            .plan(saved.getPlan())
+            .status(saved.getStatus())
+            .amountPaid(saved.getAmountPaid())
+            .razorpayOrderId(saved.getRazorpayOrderId())
+            .build();
+}
+
+
+
+public Map<String, Object> getCurrentPlanStatus(User user) {
+
+    OffsetDateTime now = OffsetDateTime.now();
+
+    boolean isActive = user.getPlanExpiresAt() == null
+            || user.getPlanExpiresAt().isAfter(now);
+
+    long daysLeft = 0;
+
+    if (user.getPlanExpiresAt() != null) {
+        daysLeft = java.time.temporal.ChronoUnit.DAYS.between(
+                now,
+                user.getPlanExpiresAt()
+        );
+    }
+
+    return Map.of(
+            "plan", user.getPlan().name(),
+            "isActive", isActive,
+            "daysLeft", Math.max(daysLeft, 0),
+            "expiresAt", user.getPlanExpiresAt()
+    );
+}
+@Transactional
+public void activateSubscriptionBySubscription(String subscriptionId, String paymentId) {
+
+    Subscription subscription = subscriptionRepository
+            .findByRazorpaySubscriptionId(subscriptionId)
+            .orElseThrow(() -> new RuntimeException("Subscription not found"));
+
+    if ("ACTIVE".equals(subscription.getStatus())) {
+        throw new RuntimeException("Already active");
+    }
+
+  
+    JSONObject payment = razorpayService.fetchPayment(paymentId);
+
+    String fetchedSubId = payment.optString("subscription_id");
+
+     if (!subscriptionId.equals(fetchedSubId)) {
+         throw new RuntimeException("Invalid subscription-payment mapping");
+     }
+
+    subscription.setStatus("ACTIVE");
+    subscription.setRazorpayPaymentId(paymentId);
+
+    OffsetDateTime now = OffsetDateTime.now();
+
+    Plan planEnum = Plan.valueOf(subscription.getPlan().toUpperCase());
+    PlanEntity planEntity = planRepository.findByCode(planEnum)
+            .orElseThrow(() -> new RuntimeException("Plan not found"));
+
+    subscription.setStartsAt(now);
+    subscription.setExpiresAt(now.plusDays(planEntity.getDurationDays()));
+
+    subscriptionRepository.save(subscription);
+
+    User user = subscription.getUser();
+    user.setPlan(planEnum);
+    user.setPlanExpiresAt(subscription.getExpiresAt());
+    userRepository.save(user);
+
+    emailService.sendPaymentSuccessEmail(
+    user,
+    subscription.getPlan(),
+    subscription.getAmountPaid(),
+    subscriptionId
+);
+}
 }

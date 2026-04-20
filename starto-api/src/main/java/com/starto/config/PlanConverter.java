@@ -17,6 +17,13 @@ public class PlanConverter implements AttributeConverter<Plan, String> {
 
     @Override
     public Plan convertToEntityAttribute(String dbData) {
-        return Plan.fromValue(dbData);
+        if (dbData == null || dbData.isBlank()) {
+            return Plan.EXPLORER;
+        }
+        try {
+            return Plan.valueOf(dbData.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return Plan.EXPLORER;
+        }
     }
 }

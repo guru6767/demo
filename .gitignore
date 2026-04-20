@@ -57,3 +57,17 @@ application-local.properties
 
 # ===== Firebase =====
 firebase-service-account.json
+
+# ===== Scratch / temp =====
+temp_remote_repo/
+temp_strategy/
+build-verify*.log
+build*.log
+run*.log
+startup*.log
+maven_fail*.log
+maven_fail*.txt
+backend*.log
+frontend*.log
+backend_tail*.txt
+backend_out*.log

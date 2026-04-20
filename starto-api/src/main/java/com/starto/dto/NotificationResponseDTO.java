@@ -20,22 +20,22 @@ public class NotificationResponseDTO {
     private String senderName;
     private String senderAvatarUrl;
 
-    public static NotificationResponseDTO from(Notification notification) {
-        return NotificationResponseDTO.builder()
-                .id(notification.getId())
-                .type(notification.getType())
+   public static NotificationResponseDTO from(Notification notification) {
+    return NotificationResponseDTO.builder()
+            .id(notification.getId())
+            .type(notification.getType())
 
-                // FIXED
-                .message(notification.getTitle() + " - " + notification.getBody())
+            // ✅ FIXED
+            .message(notification.getTitle() + " - " + notification.getBody())
 
-                .isRead(notification.getIsRead())
-                .createdAt(notification.getCreatedAt())
+            .isRead(notification.getIsRead())
+            .createdAt(notification.getCreatedAt())
 
-                // FIXED
-                .senderId(notification.getUser().getId())
-                .senderName(notification.getUser().getName())
-                .senderAvatarUrl(notification.getUser().getAvatarUrl())
+            // ✅ FIXED
+            .senderId(notification.getUser().getId())
+            .senderName(notification.getUser().getName())
+            .senderAvatarUrl(notification.getUser().getAvatarUrl())
 
-                .build();
-    }
+            .build();
+}
 }

@@ -12,6 +12,6 @@ public class SignalInsightsDTO {
     private long totalResponses;
     private long totalOffers;
     private long followerViews;
-    private long nonFollowerViews;
+   private long nonFollowerViews;
     private List<Map<String, Object>> viewsOverTime; // [{date, count}, ...]
 }

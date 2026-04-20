@@ -29,112 +29,115 @@ public class SubscriptionController {
             Authentication authentication,
             @RequestBody SubscriptionRequestDTO dto) {
 
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
+        if (authentication == null) return ResponseEntity.status(401).build();
 
         return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
                 .map(user -> ResponseEntity.ok(
-                        subscriptionService.createOrder(user, dto.getPlan())))
+                        subscriptionService.createOrder(user, dto.getPlan())
+                ))
                 .orElse(ResponseEntity.status(401).build());
     }
 
-    @PostMapping("/verify")
-    public ResponseEntity<?> verifyPayment(@RequestBody Map<String, String> body) {
+ @PostMapping("/verify")
+public ResponseEntity<?> verifyPayment(@RequestBody Map<String, String> body) {
 
-        String orderId = body.get("razorpayOrderId");
-        String subscriptionId = body.get("razorpaySubscriptionId");
-        String paymentId = body.get("razorpayPaymentId");
-        String signature = body.get("razorpaySignature");
+    String orderId = body.get("razorpayOrderId");
+    String subscriptionId = body.get("razorpaySubscriptionId");
+    String paymentId = body.get("razorpayPaymentId");
+    String signature = body.get("razorpaySignature");
 
-        // 🔵 ORDER FLOW
-        if (orderId != null) {
-            if (paymentId == null || signature == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Missing order fields"));
-            }
-
-            subscriptionService.activateSubscription(orderId, paymentId, signature);
-            return ResponseEntity.ok("Order verified");
+    //  ORDER FLOW
+    if (orderId != null) {
+        if (paymentId == null || signature == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Missing order fields"));
         }
 
-        // 🟢 SUBSCRIPTION FLOW
-        if (subscriptionId != null) {
-            if (paymentId == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Missing subscription fields"));
-            }
+        subscriptionService.activateSubscription(orderId, paymentId, signature);
+        return ResponseEntity.ok("Order verified");
+    }
 
-            subscriptionService.activateSubscriptionBySubscription(subscriptionId, paymentId);
-            return ResponseEntity.ok("Subscription verified");
+    //  SUBSCRIPTION FLOW
+    if (subscriptionId != null) {
+        if (paymentId == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Missing subscription fields"));
         }
 
-        return ResponseEntity.badRequest()
-                .body(Map.of("error", "Invalid request type"));
+        subscriptionService.activateSubscriptionBySubscription(subscriptionId, paymentId);
+        return ResponseEntity.ok("Subscription verified");
     }
 
-    @GetMapping("/history")
-    public ResponseEntity<?> getPaymentHistory(Authentication authentication) {
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
+    return ResponseEntity.badRequest()
+            .body(Map.of("error", "Invalid request type"));
+}
+@GetMapping("/history")
+public ResponseEntity<?> getPaymentHistory(Authentication authentication) {
+    if (authentication == null) return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> ResponseEntity.ok(
-                        subscriptionService.getPaymentHistory(user.getId())))
-                .orElse(ResponseEntity.status(401).build());
-    }
+    return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
+            .map(user -> ResponseEntity.ok(
+                    subscriptionService.getPaymentHistory(user.getId())
+            ))
+            .orElse(ResponseEntity.status(401).build());
+}
 
-    @PostMapping("/upgrade")
-    public ResponseEntity<?> upgradePlan(
-            Authentication authentication,
-            @RequestBody SubscriptionRequestDTO dto) {
+@PostMapping("/upgrade")
+public ResponseEntity<?> upgradePlan(
+        Authentication authentication,
+        @RequestBody SubscriptionRequestDTO dto) {
 
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
+    if (authentication == null) return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> {
-                    try {
-                        SubscriptionResponseDTO response = subscriptionService.upgradePlan(user, dto.getPlan());
+    return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
+            .map(user -> {
+                try {
+                    SubscriptionResponseDTO response =
+                        subscriptionService.upgradePlan(user, dto.getPlan());
 
-                        return ResponseEntity.ok(Map.of(
-                                "orderId", response.getRazorpayOrderId(),
-                                "amount", response.getAmountPaid(),
-                                "plan", response.getPlan(),
-                                "currency", "INR",
-                                "message", "Complete payment to upgrade to " + dto.getPlan() + " plan"));
-                    } catch (RuntimeException ex) {
-                        return ResponseEntity.badRequest()
-                                .body(Map.of("error", ex.getMessage()));
-                    }
-                })
-                .orElse(ResponseEntity.status(401).build());
-    }
+                    return ResponseEntity.ok(Map.of(
+                        "orderId", response.getRazorpayOrderId(),
+                        "amount", response.getAmountPaid(),
+                        "plan", response.getPlan(),
+                        "currency", "INR",
+                        "message", "Complete payment to upgrade to " + dto.getPlan() + " plan"
+                    ));
+                } catch (RuntimeException ex) {
+                    return ResponseEntity.badRequest()
+                        .body(Map.of("error", ex.getMessage()));
+                }
+            })
+            .orElse(ResponseEntity.status(401).build());
+}
 
-    @GetMapping("/plans")
-    public ResponseEntity<?> getPlans() {
 
-        List<PlanEntity> plans = planServiceDB.getAllPlans();
+@GetMapping("/plans")
+public ResponseEntity<?> getPlans() {
 
-        List<Map<String, Object>> response = plans.stream()
-                .map(p -> Map.<String, Object>of(
-                        "plan", p.getCode().name(),
-                        "amountPaise", p.getPricePaise(),
-                        "amountRupees", p.getPricePaise() / 100.0,
-                        "durationDays", p.getDurationDays(),
-                        "billingType", p.getBillingType().name()))
-                .collect(Collectors.toList());
+    List<PlanEntity> plans = planServiceDB.getAllPlans();
 
-        return ResponseEntity.ok(response);
-    }
+    List<Map<String, Object>> response = plans.stream()
+            .map(p -> Map.<String, Object>of(
+                    "plan", p.getCode().name(),
+                    "amountPaise", p.getPricePaise(),
+                    "amountRupees", p.getPricePaise() / 100.0,
+                    "durationDays", p.getDurationDays(),
+                    "billingType", p.getBillingType().name()
+            ))
+            .collect(Collectors.toList());
 
-    @GetMapping("/status")
-    public ResponseEntity<?> getCurrentPlan(Authentication authentication) {
+    return ResponseEntity.ok(response);
+}
 
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
-                .map(user -> ResponseEntity.ok(
-                        subscriptionService.getCurrentPlanStatus(user)))
-                .orElse(ResponseEntity.status(401).build());
-    }
+@GetMapping("/status")
+public ResponseEntity<?> getCurrentPlan(Authentication authentication) {
+
+    if (authentication == null) return ResponseEntity.status(401).build();
+
+    return userService.getUserByFirebaseUid(authentication.getPrincipal().toString())
+            .map(user -> ResponseEntity.ok(
+                    subscriptionService.getCurrentPlanStatus(user)
+            ))
+            .orElse(ResponseEntity.status(401).build());
+}
 
 }

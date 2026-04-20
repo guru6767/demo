@@ -2,60 +2,75 @@ spring:
   application:
     name: starto-api
   datasource:
-    url: jdbc:postgresql://localhost:5432/starto
-    username: postgres
-    password: password
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/starto}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
   mail:
-    host: localhost
-    port: 1025
-    username: user
-    password: password
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
-          auth: false
+          auth: true
           starttls:
-            enable: false
+            enable: true
 
 logging:
   level:
-    org.springframework.transaction: DEBUG
-    org.hibernate.SQL: DEBUG
+    org.springframework.transaction: WARN
+    org.hibernate.SQL: WARN
+    root: INFO
 
 server:
-  port: 8081
+  port: ${PORT:8080}
 
 openai:
   api-key: ${OPENAI_API_KEY:dummy_key}
 
 google:
   ai:
-    api-key: ${GEMINI_API_KEY:AIzaSyA629ErsahC4X340k129_GZraW6BcQ6Lh8}
+    api-key: ${GEMINI_API_KEY:}
   maps:
-    api-key: ${GOOGLE_MAPS_API_KEY:AIzaSyDKFYLZS7YUysjKu-rnKKK3VA-kGh3R2Fk}
+    api-key: ${GOOGLE_MAPS_API_KEY:}
 
 firebase:
   config-path: ${FIREBASE_CONFIG_PATH:src/main/resources/firebase-service-account.json}
 
 razorpay:
   key:
-    id: ${RAZORPAY_KEY_ID:rzp_live_SetihMoannIew3}
-    secret: ${RAZORPAY_KEY_SECRET:0xIGSxuobSuqpt2u2s3K4bKN}
+    id: ${RAZORPAY_KEY_ID:}
+    secret: ${RAZORPAY_KEY_SECRET:}
   plans:
-    sprint: plan_Sf2GSCBf5wTrzk
-    boost: plan_Sf2GSCBf5wTrzk
-    pro: plan_Sf2GSCBf5wTrzk
-    captain: plan_Sf2GSCBf5wTrzk
-    captainPro: plan_Sf2GSCBf5wTrzk
-    proPlus: plan_Sf2GSCBf5wTrzk
-    growth: plan_Sf2GSCBf5wTrzk
-    annual: plan_Sf2GSCBf5wTrzk
+    sprint: ${RAZORPAY_PLAN_SPRINT:plan_Sf2GSCBf5wTrzk}
+    boost: ${RAZORPAY_PLAN_BOOST:plan_Sf2GSCBf5wTrzk}
+    pro: ${RAZORPAY_PLAN_PRO:plan_Sf2GSCBf5wTrzk}
+    captain: ${RAZORPAY_PLAN_CAPTAIN:plan_Sf2GSCBf5wTrzk}
+    captainPro: ${RAZORPAY_PLAN_CAPTAIN_PRO:plan_Sf2GSCBf5wTrzk}
+    proPlus: ${RAZORPAY_PLAN_PRO_PLUS:plan_Sf2GSCBf5wTrzk}
+    growth: ${RAZORPAY_PLAN_GROWTH:plan_Sf2GSCBf5wTrzk}
+    annual: ${RAZORPAY_PLAN_ANNUAL:plan_Sf2GSCBf5wTrzk}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized

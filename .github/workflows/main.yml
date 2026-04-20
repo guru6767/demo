@@ -1,4 +1,4 @@
-name: Starto V2 CI/CD
+name: Starto CI/CD → Antigravity
 
 on:
   push:
@@ -6,34 +6,192 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ${{ github.repository_owner }}/starto-backend
+  FRONTEND_IMAGE: ${{ github.repository_owner }}/starto-frontend
+
+# ─────────────────────────────────────────────────────────────
+# Build & Test Jobs
+# ─────────────────────────────────────────────────────────────
 jobs:
   backend-build:
+    name: Build & Test Backend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
+
       - name: Build with Maven
-        run: mvn -f starto-api/pom.xml clean install -DskipTests
+        run: mvn -f starto-api/pom.xml clean package -DskipTests -B
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: starto-api-jar
+          path: starto-api/target/*.jar
+          retention-days: 1
 
   frontend-build:
+    name: Build & Test Frontend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Node.js
+
+      - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: starto-web/package-lock.json
+
       - name: Install dependencies
-        run: npm install --prefix starto-web
+        run: npm ci --prefix starto-web
+
       - name: Build Next.js
         run: npm run build --prefix starto-web
         env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          NEXT_PUBLIC_RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+
+# ─────────────────────────────────────────────────────────────
+# Docker Build & Push (only on push to main)
+# ─────────────────────────────────────────────────────────────
+  docker-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [backend-build, frontend-build]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./starto-api
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract metadata for frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./starto-web
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+            NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
+            NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}
+            NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+            NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}
+            NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+            NEXT_PUBLIC_FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}
+            NEXT_PUBLIC_RAZORPAY_KEY_ID=${{ secrets.RAZORPAY_KEY_ID }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+# ─────────────────────────────────────────────────────────────
+# Deploy to Antigravity
+# ─────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Antigravity
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [docker-push]
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Antigravity CLI
+        run: |
+          curl -fsSL https://get.antigravity.sh | sh
+          echo "$HOME/.antigravity/bin" >> $GITHUB_PATH
+
+      - name: Authenticate with Antigravity
+        run: antigravity auth login --token ${{ secrets.ANTIGRAVITY_TOKEN }}
+
+      - name: Deploy backend
+        run: |
+          antigravity deploy \
+            --name starto-backend \
+            --image ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:latest \
+            --port 8080 \
+            --env DB_URL="${{ secrets.DB_URL }}" \
+            --env DB_USERNAME="${{ secrets.DB_USERNAME }}" \
+            --env DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            --env REDIS_HOST="${{ secrets.REDIS_HOST }}" \
+            --env REDIS_PORT="${{ secrets.REDIS_PORT }}" \
+            --env REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
+            --env FIREBASE_CONFIG_PATH="/app/firebase-service-account.json" \
+            --env GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+            --env GOOGLE_MAPS_API_KEY="${{ secrets.GOOGLE_MAPS_API_KEY }}" \
+            --env RAZORPAY_KEY_ID="${{ secrets.RAZORPAY_KEY_ID }}" \
+            --env RAZORPAY_KEY_SECRET="${{ secrets.RAZORPAY_KEY_SECRET }}" \
+            --env MAIL_HOST="${{ secrets.MAIL_HOST }}" \
+            --env MAIL_USERNAME="${{ secrets.MAIL_USERNAME }}" \
+            --env MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}" \
+            --health-check /actuator/health
+
+      - name: Deploy frontend
+        run: |
+          antigravity deploy \
+            --name starto-frontend \
+            --image ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:latest \
+            --port 3000 \
+            --env NEXT_PUBLIC_API_BASE_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}"
+
+      - name: Verify deployment
+        run: |
+          echo "✅ Deployed starto-backend → port 8080"
+          echo "✅ Deployed starto-frontend → port 3000"
+          antigravity status starto-backend
+          antigravity status starto-frontend

@@ -1,6 +1,5 @@
 // SubscriptionResponseDTO.java
 package com.starto.dto;
-
 import lombok.*;
 import java.time.OffsetDateTime;
 import java.util.UUID;

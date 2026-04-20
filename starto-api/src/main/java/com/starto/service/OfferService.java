@@ -28,108 +28,112 @@ public class OfferService {
     private final NotificationService notificationService;
 
     // talent sends offer
-    @Transactional
-    public Offer sendOffer(User talent, OfferRequestDTO dto) {
+  @Transactional
+public Offer sendOffer(User talent, OfferRequestDTO dto) {
 
-        // block founders
-        // if ("FOUNDER".equalsIgnoreCase(talent.getRole().trim())) {
-        // throw new RuntimeException("Founders cannot send offers");
-        // }
 
-        Signal signal = signalRepository.findById(dto.getSignalId())
-                .orElseThrow(() -> new RuntimeException("Signal not found"));
+    Signal signal = signalRepository.findById(dto.getSignalId())
+            .orElseThrow(() -> new RuntimeException("Signal not found"));
 
-        // one offer per signal
-        offerRepository.findByRequesterIdAndSignalId(talent.getId(), signal.getId())
-                .ifPresent(o -> {
-                    throw new RuntimeException("You already sent an offer for this signal");
-                });
+    //  one offer per signal
+    offerRepository.findByRequesterIdAndSignalId(talent.getId(), signal.getId())
+            .ifPresent(o -> {
+                throw new RuntimeException("You already sent an offer for this signal");
+            });
 
-        Offer offer = Offer.builder()
-                .requester(talent)
-                .receiver(signal.getUser())
-                .signal(signal)
-                .organizationName(dto.getOrganizationName())
-                .portfolioLink(dto.getPortfolioLink())
-                .message(dto.getMessage())
-                .status("PENDING")
-                .build();
+    Offer offer = Offer.builder()
+            .requester(talent)
+            .receiver(signal.getUser())
+            .signal(signal)
+            .organizationName(dto.getOrganizationName())
+            .portfolioLink(dto.getPortfolioLink())
+            .message(dto.getMessage())
+            .status("PENDING")
+            .build();
 
-        // increment safely
-        Integer count = signal.getOfferCount();
-        signal.setOfferCount((count == null ? 0 : count) + 1);
-        signalRepository.save(signal);
+    // increment safely
+    Integer count = signal.getOfferCount();
+    signal.setOfferCount((count == null ? 0 : count) + 1);
+    signalRepository.save(signal);
 
-        Offer savedOffer = offerRepository.save(offer);
+    Offer savedOffer = offerRepository.save(offer);
 
-        // WEBSOCKET (ADD HERE)
-        webSocketService.send(
-                "/topic/offers/" + savedOffer.getReceiver().getId(),
-                Map.of(
-                        "type", "NEW_OFFER",
-                        "data", savedOffer));
+    //  WEBSOCKET (ADD HERE)
+    webSocketService.send(
+            "/topic/offers/" + savedOffer.getReceiver().getId(),
+            Map.of(
+                    "type", "NEW_OFFER",
+                    "data", savedOffer
+            )
+    );
 
-        Map<String, Object> data = Map.of(
-                "offerId", savedOffer.getId(),
-                "signalId", signal.getId(),
-                "organizationName", savedOffer.getOrganizationName(),
-                "action", "NEW_OFFER");
+    Map<String, Object> data = Map.of(
+    "offerId", savedOffer.getId(),
+    "signalId", signal.getId(),
+    "organizationName", savedOffer.getOrganizationName(),
+    "action", "NEW_OFFER"
+);
 
-        notificationService.send(
-                savedOffer.getReceiver().getId(),
-                "NEW_OFFER",
-                "New Offer Received!",
-                talent.getName() + " sent you an offer",
-                data // ✅ here
-        );
+   notificationService.send(
+    savedOffer.getReceiver().getId(),
+    "NEW_OFFER",
+    "New Offer Received!",
+    talent.getName() + " sent you an offer",
+    data   
+);
 
-        return savedOffer;
-    }
+    return savedOffer;
+}
 
     // founder accepts offer
-    @Transactional
-    public Offer acceptOffer(User founder, UUID offerId) {
+   @Transactional
+public Offer acceptOffer(User founder, UUID offerId) {
 
-        Offer offer = offerRepository.findById(offerId)
-                .orElseThrow(() -> new RuntimeException("Offer not found"));
+    Offer offer = offerRepository.findById(offerId)
+            .orElseThrow(() -> new RuntimeException("Offer not found"));
 
-        // only receiver can accept
-        if (!offer.getReceiver().getId().equals(founder.getId())) {
-            throw new RuntimeException("Not authorized to accept this offer");
-        }
-
-        // must be pending
-        if (!"PENDING".equalsIgnoreCase(offer.getStatus())) {
-            throw new RuntimeException("Offer is not in pending state");
-        }
-
-        // update status
-        offer.setStatus("ACCEPTED");
-        offer.setUpdatedAt(OffsetDateTime.now());
-
-        Offer updated = offerRepository.save(offer);
-
-        // notify talent
-        webSocketService.send(
-                "/topic/offers/" + updated.getRequester().getId(),
-                Map.of(
-                        "type", "OFFER_ACCEPTED",
-                        "data", updated));
-
-        notificationService.send(
-                updated.getRequester().getId(),
-                "OFFER_ACCEPTED",
-                "Offer Accepted!",
-                "Your offer was accepted",
-                null);
-
-        return updated;
+    //  only receiver can accept
+    if (!offer.getReceiver().getId().equals(founder.getId())) {
+        throw new RuntimeException("Not authorized to accept this offer");
     }
+
+    //  must be pending
+    if (!"PENDING".equalsIgnoreCase(offer.getStatus())) {
+        throw new RuntimeException("Offer is not in pending state");
+    }
+
+    // update status
+    offer.setStatus("ACCEPTED");
+    offer.setUpdatedAt(OffsetDateTime.now());
+
+    Offer updated = offerRepository.save(offer);
+
+    //  notify talent
+    webSocketService.send(
+            "/topic/offers/" + updated.getRequester().getId(),
+            Map.of(
+                    "type", "OFFER_ACCEPTED",
+                    "data", updated
+            )
+    );
+
+    notificationService.send(
+    updated.getRequester().getId(),
+    "OFFER_ACCEPTED",
+    "Offer Accepted!",
+    "Your offer was accepted",
+    null
+);
+
+    return updated;
+}
+
+    
 
     // founder sees pending offers
     public List<Offer> getAllOffers(UUID founderId) {
-        return offerRepository.findAllByReceiverId(founderId);
-    }
+    return offerRepository.findAllByReceiverId(founderId);
+}
 
     // talent sees sent offers
     public List<Offer> getSentOffers(UUID talentId) {
@@ -147,7 +151,7 @@ public class OfferService {
 
         // verify user is part of this offer
         if (!offer.getRequesterId().equals(user.getId()) &&
-                !offer.getReceiverId().equals(user.getId())) {
+            !offer.getReceiverId().equals(user.getId())) {
             throw new RuntimeException("Forbidden");
         }
 
@@ -173,6 +177,6 @@ public class OfferService {
     }
 
     public int countUserOffers(UUID userId) {
-        return offerRepository.countByRequesterId(userId);
-    }
+    return offerRepository.countByRequesterId(userId);
+}
 }

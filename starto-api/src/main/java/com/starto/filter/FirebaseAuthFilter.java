@@ -1,6 +1,5 @@
 package com.starto.filter;
 
-import com.starto.repository.UserRepository;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseToken;
 import jakarta.servlet.FilterChain;
@@ -15,12 +14,6 @@ import java.io.IOException;
 import java.util.Collections;
 
 public class FirebaseAuthFilter extends OncePerRequestFilter {
- 
-    private final UserRepository userRepository;
- 
-    public FirebaseAuthFilter(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -30,8 +23,8 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain)
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
             throws ServletException, IOException {
 
         String authHeader = request.getHeader("Authorization");
@@ -42,32 +35,20 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
         }
 
         String idToken = authHeader.substring(7);
- 
-        // ✅ DEV TOKEN HANDLER
-        if (idToken.startsWith("dev_") || idToken.startsWith("local-")) {
-            String username = idToken.startsWith("dev_") ? idToken.substring(4) : idToken.substring(6);
-            userRepository.findByUsername(username).ifPresent(user -> {
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        user.getFirebaseUid(), null, Collections.emptyList());
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            });
-            filterChain.doFilter(request, response);
-            return;
-        }
- 
         try {
             FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken);
             String uid = decodedToken.getUid();
 
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(uid, null,
-                    Collections.emptyList());
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(uid, null, Collections.emptyList());
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
         } catch (Exception e) {
-            // If token is invalid, we just don't set the authentication.
-            System.err.println("Firebase Auth Error: " + e.getMessage());
-            logger.warn("Firebase token verification failed: " + e.getMessage());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\": \"Invalid or expired token: " + e.getMessage() + "\"}");
+            return;
         }
 
         filterChain.doFilter(request, response);

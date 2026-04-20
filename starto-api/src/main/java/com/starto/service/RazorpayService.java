@@ -11,13 +11,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class RazorpayService {
 
-    private RazorpayClient razorpayClient;
+    private  RazorpayClient razorpayClient;
 
-    // ✅ ADD THESE
     private final String keyId;
     private final String keySecret;
 
-    // 🔥 Constructor injection
     public RazorpayService(
             @Value("${razorpay.key.id}") String keyId,
             @Value("${razorpay.key.secret}") String keySecret) throws Exception {
@@ -26,13 +24,9 @@ public class RazorpayService {
         this.keySecret = keySecret;
         this.razorpayClient = new RazorpayClient(keyId, keySecret);
 
-        System.out.println("==== RAZORPAY DEBUG ====");
-        System.out.println("KEY ID: " + keyId);
-        System.out.println("KEY SECRET: " + keySecret);
-        System.out.println("========================");
     }
 
-    // ✅ CREATE ORDER
+    //  CREATE ORDER
     public String createOrder(int amountPaise) {
         try {
             JSONObject options = new JSONObject();
@@ -48,7 +42,7 @@ public class RazorpayService {
         }
     }
 
-    // ✅ VERIFY PAYMENT (NO NEED NEW CLIENT)
+    //  VERIFY PAYMENT (NO NEED NEW CLIENT)
     public boolean verifyPayment(String orderId, String paymentId) {
         try {
             var payment = razorpayClient.payments.fetch(paymentId);
@@ -58,7 +52,7 @@ public class RazorpayService {
         }
     }
 
-    // ✅ VERIFY SIGNATURE
+    //  VERIFY SIGNATURE
     public boolean verifySignature(String orderId, String paymentId, String signature) {
         try {
             String payload = orderId + "|" + paymentId;
@@ -69,28 +63,27 @@ public class RazorpayService {
     }
 
     public String createSubscription(String razorpayPlanId) {
-        try {
-            JSONObject options = new JSONObject();
-            options.put("plan_id", razorpayPlanId);
-            options.put("customer_notify", 1);
-            options.put("total_count", 12); // billing cycles
+    try {
+        JSONObject options = new JSONObject();
+        options.put("plan_id", razorpayPlanId);
+        options.put("customer_notify", 1);
+        options.put("total_count", 12); // billing cycles
 
-            var subscription = razorpayClient.subscriptions.create(options);
+        var subscription = razorpayClient.subscriptions.create(options);
 
-            return subscription.get("id");
+        return subscription.get("id");
 
-        } catch (Exception e) {
-            throw new RuntimeException("Subscription creation failed");
-        }
+    } catch (Exception e) {
+        throw new RuntimeException("Subscription creation failed");
     }
-
-    public JSONObject fetchPayment(String paymentId) {
-        try {
-            Object payment = razorpayClient.payments.fetch(paymentId);
-            return new JSONObject(payment.toString());
-        } catch (Exception e) {
-            throw new RuntimeException("Payment fetch failed: " + e.getMessage());
-        }
+}
+public JSONObject fetchPayment(String paymentId) {
+    try {
+        Object payment = razorpayClient.payments.fetch(paymentId);
+        return new JSONObject(payment.toString());
+    } catch (Exception e) {
+        throw new RuntimeException("Payment fetch failed: " + e.getMessage());
     }
+}
 
 }

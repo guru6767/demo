@@ -24,95 +24,98 @@ public class CommentController {
     private final UserService userService;
     private final WebSocketService webSocketService;
 
-    // saving the comment into DB
-    @PostMapping
-    public ResponseEntity<?> addComment(
-            Authentication authentication,
-            @PathVariable UUID signalId,
-            @RequestBody CommentRequestDTO dto) {
 
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
+    //saving the comment into DB
+   @PostMapping
+public ResponseEntity<?> addComment(
+        Authentication authentication,
+        @PathVariable UUID signalId,
+        @RequestBody CommentRequestDTO dto) {
 
-        return userService.getUserByFirebaseUid(
-                authentication.getPrincipal().toString())
-                .map(user -> {
-                    if (dto.getContent() == null || dto.getContent().isBlank()) {
-                        return ResponseEntity.status(400).body(
-                                Map.of("error", "Comment cannot be empty"));
-                    }
+    if (authentication == null) return ResponseEntity.status(401).build();
 
-                    var saved = commentService.addComment(user, signalId, dto.getContent());
+    return userService.getUserByFirebaseUid(
+            authentication.getPrincipal().toString())
+            .map(user -> {
+                if (dto.getContent() == null || dto.getContent().isBlank()) {
+                    return ResponseEntity.status(400).body(
+                        Map.of("error", "Comment cannot be empty")
+                    );
+                }
 
-                    // SEND REAL-TIME UPDATE
-                    webSocketService.send("/topic/comments/" + signalId, saved);
-                    return ResponseEntity.ok(saved);
-                })
-                .orElse(ResponseEntity.status(401).build());
-    }
+                var saved = commentService.addComment(user, signalId, dto.getContent());
 
-    // saving the reply comment into DB
-    @PostMapping("/{parentId}/reply")
-    public ResponseEntity<?> addReply(
-            Authentication authentication,
-            @PathVariable UUID signalId,
-            @PathVariable UUID parentId,
-            @RequestBody CommentRequestDTO dto) {
+                //  SEND REAL-TIME UPDATE
+               webSocketService.send("/topic/comments/" + signalId, saved);
+                return ResponseEntity.ok(saved);
+            })
+            .orElse(ResponseEntity.status(401).build());
+}
 
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(
-                authentication.getPrincipal().toString())
-                .map(user -> {
-                    if (dto.getContent() == null || dto.getContent().isBlank()) {
-                        return ResponseEntity.status(400).body(
-                                Map.of("error", "Reply cannot be empty"));
-                    }
+    //saving the reply comment into DB
+   @PostMapping("/{parentId}/reply")
+public ResponseEntity<?> addReply(
+        Authentication authentication,
+        @PathVariable UUID signalId,
+        @PathVariable UUID parentId,
+        @RequestBody CommentRequestDTO dto) {
 
-                    // SAVE FIRST
-                    var savedReply = commentService.addReply(user, signalId, parentId, dto.getContent());
+    if (authentication == null) return ResponseEntity.status(401).build();
 
-                    // THEN SEND WEBSOCKET
-                    webSocketService.send("/topic/comments/" + signalId, savedReply);
+    return userService.getUserByFirebaseUid(
+            authentication.getPrincipal().toString())
+            .map(user -> {
+                if (dto.getContent() == null || dto.getContent().isBlank()) {
+                    return ResponseEntity.status(400).body(
+                        Map.of("error", "Reply cannot be empty")
+                    );
+                }
 
-                    // RETURN RESPONSE
-                    return ResponseEntity.ok(savedReply);
-                })
-                .orElse(ResponseEntity.status(401).build());
-    }
+                //  SAVE FIRST
+                var savedReply = commentService.addReply(user, signalId, parentId, dto.getContent());
 
-    // Get all comments on single signal
+                //  THEN SEND WEBSOCKET
+              webSocketService.send("/topic/comments/" + signalId, savedReply);
+
+                //  RETURN RESPONSE
+                return ResponseEntity.ok(savedReply);
+            })
+            .orElse(ResponseEntity.status(401).build());
+}
+
+
+    //Get all comments on single signal
     @GetMapping
     public ResponseEntity<List<CommentResponseDTO>> getComments(
             @PathVariable UUID signalId) {
         return ResponseEntity.ok(commentService.getComments(signalId));
     }
 
-    // delete the comment
-    @DeleteMapping("/{commentId}")
-    public ResponseEntity<?> deleteComment(
-            Authentication authentication,
-            @PathVariable UUID signalId,
-            @PathVariable UUID commentId) {
+    //delete the comment
+   @DeleteMapping("/{commentId}")
+public ResponseEntity<?> deleteComment(
+        Authentication authentication,
+        @PathVariable UUID signalId,
+        @PathVariable UUID commentId) {
 
-        if (authentication == null)
-            return ResponseEntity.status(401).build();
+    if (authentication == null) return ResponseEntity.status(401).build();
 
-        return userService.getUserByFirebaseUid(
-                authentication.getPrincipal().toString())
-                .map(user -> {
+    return userService.getUserByFirebaseUid(
+            authentication.getPrincipal().toString())
+            .map(user -> {
 
-                    // delete from DB
-                    commentService.deleteComment(user, commentId);
+                //  delete from DB
+                commentService.deleteComment(user, commentId);
 
-                    // notify all clients
-                    webSocketService.send(
-                            "/topic/comments/" + signalId,
-                            Map.of("type", "DELETE", "commentId", commentId));
+                //  notify all clients
+                webSocketService.send(
+    "/topic/comments/" + signalId,
+    Map.of("type", "DELETE", "commentId", commentId)
+);
 
-                    return ResponseEntity.ok(Map.of("message", "Deleted successfully"));
-                })
-                .orElse(ResponseEntity.status(401).build());
-    }
+                return ResponseEntity.ok(Map.of("message", "Deleted successfully"));
+            })
+            .orElse(ResponseEntity.status(401).build());
+}
 }

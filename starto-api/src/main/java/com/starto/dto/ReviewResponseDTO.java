@@ -25,15 +25,15 @@ public class ReviewResponseDTO {
     private UUID reviewedUserId;
 
     public static ReviewResponseDTO from(Review review) {
-        return ReviewResponseDTO.builder()
-                .id(review.getId())
-                .rating(review.getRating())
-                .comment(review.getComment())
-                .createdAt(review.getCreatedAt())
-                .reviewerId(review.getReviewer().getId())
-                .reviewerName(review.getReviewer().getName())
-                .reviewerAvatarUrl(review.getReviewer().getAvatarUrl())
-                .reviewedUserId(review.getReviewed().getId()) // ✅ FIXED
-                .build();
-    }
+    return ReviewResponseDTO.builder()
+            .id(review.getId())
+            .rating(review.getRating())
+            .comment(review.getComment())
+            .createdAt(review.getCreatedAt())
+            .reviewerId(review.getReviewer().getId())
+            .reviewerName(review.getReviewer().getName())
+            .reviewerAvatarUrl(review.getReviewer().getAvatarUrl())
+            .reviewedUserId(review.getReviewed().getId()) // ✅ FIXED
+            .build();
+}
 }

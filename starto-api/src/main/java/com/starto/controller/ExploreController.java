@@ -42,44 +42,49 @@ public class ExploreController {
 
         User user = getUser(authentication);
 
-        // ❌ Unauthorized
+        //  Unauthorized
         if (user == null) {
             return CompletableFuture.completedFuture(
                     ResponseEntity.status(401)
-                            .body((Object) Map.of("error", "Unauthorized")));
+                            .body((Object) Map.of("error", "Unauthorized"))
+            );
         }
 
-        // 🔥 Convert String → Plan
+        //  Convert String → Plan
         Plan plan = Plan.valueOf(user.getPlan().name().toUpperCase());
 
-        // ❌ Expired plan
+        //  Expired plan
         boolean notExpired = plan == Plan.EXPLORER ||
                 (user.getPlanExpiresAt() != null &&
-                        user.getPlanExpiresAt().isAfter(OffsetDateTime.now()));
+                 user.getPlanExpiresAt().isAfter(OffsetDateTime.now()));
 
         if (!notExpired) {
             return CompletableFuture.completedFuture(
                     ResponseEntity.status(403)
-                            .body((Object) Map.of("error", "Plan expired. Please renew.")));
+                            .body((Object) Map.of("error", "Plan expired. Please renew."))
+            );
         }
 
-        // 🔥 AI LIMIT CHECK
+        //  AI LIMIT CHECK
         int usedToday = exploreService.getTodayUsage(user.getId());
 
         if (!planService.canUseAI(plan, usedToday)) {
             return CompletableFuture.completedFuture(
                     ResponseEntity.status(403)
-                            .body((Object) Map.of("error", "AI limit reached. Upgrade your plan.")));
+                            .body((Object) Map.of("error", "AI limit reached. Upgrade your plan."))
+            );
         }
 
-        // 🚀 Async processing
+        //  Async processing
         return CompletableFuture
-                .supplyAsync(() -> exploreService.analyzeMarket(request, user.getId().toString()))
+                .supplyAsync(() ->
+                        exploreService.analyzeMarket(request, user.getId().toString())
+                )
                 .thenApply(res -> {
                     if (res != null && res.getConfidenceScore() > 0) {
-                        exploreService.incrementUsage(user.getId());
-                    }
-                    return ResponseEntity.ok((Object) res);
+        exploreService.incrementUsage(user.getId());
+    }
+    return ResponseEntity.ok((Object) res);
                 })
                 .exceptionally(ex -> {
                     ex.printStackTrace();

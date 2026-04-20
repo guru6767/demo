@@ -8,7 +8,9 @@ import java.util.stream.Collectors;
 
 import java.util.Map;
 
+
 import lombok.extern.slf4j.Slf4j;
+
 
 @Slf4j
 @RestControllerAdvice
@@ -26,14 +28,14 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<?> handleValidation(MethodArgumentNotValidException e) {
-        String errors = e.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(err -> err.getField() + ": " + err.getDefaultMessage())
-                .collect(Collectors.joining(", "));
+public ResponseEntity<?> handleValidation(MethodArgumentNotValidException e) {
+    String errors = e.getBindingResult()
+            .getFieldErrors()
+            .stream()
+            .map(err -> err.getField() + ": " + err.getDefaultMessage())
+            .collect(Collectors.joining(", "));
 
-        return ResponseEntity.badRequest()
-                .body(Map.of("error", errors));
-    }
+    return ResponseEntity.badRequest()
+            .body(Map.of("error", errors));
+}
 }

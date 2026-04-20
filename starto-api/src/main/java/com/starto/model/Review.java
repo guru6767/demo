@@ -14,7 +14,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Review implements Serializable {
+public class Review implements Serializable{
     private static final long serialVersionUID = 1L;
 
     @Id

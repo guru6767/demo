@@ -46,5 +46,5 @@ public class Subscription {
     private OffsetDateTime createdAt;
 
     @Column
-    private String razorpaySubscriptionId;
+private String razorpaySubscriptionId;
 }
